@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Application</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="map-container">
+        <div id="map"></div>
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search">
+                <button id="search-btn">Search</button>
+            </div>
+            <div class="tools">
+                <button id="add-marker" title="Marker">M</button>
+                <button id="add-line" title="Line">L</button>
+                <button id="add-polygon" title="Polygon">P</button>
+                <button id="delete-object" title="Delete">D</button>
+                <button id="clear-all" title="Clear">C</button>
+            </div>
+            <div class="save-load">
+                <input type="text" id="save-file-name" placeholder="File name...">
+                <button id="save-map">Save</button>
+                <select id="load-file-name">
+                    <option value="">Select file...</option>
+                </select>
+                <button id="load-map">Load</button>
+            </div>
+            <div class="coordinates">
+                Latitude: <span id="lat">0</span>, Longitude: <span id="lng">0</span>
+            </div>
+            <div id="help-text"></div>
+            <div id="error-message" style="color: red;"></div>
+        </div>
+    </div>
+    <script src="leaflet/leaflet.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

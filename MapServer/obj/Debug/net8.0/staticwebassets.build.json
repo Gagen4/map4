@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "8AvN3Yxh5uSx8xabRAIvrhW8Hw5/DGag38az4dX7zGs=",
+  "Source": "MapServer",
+  "BasePath": "_content/MapServer",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
