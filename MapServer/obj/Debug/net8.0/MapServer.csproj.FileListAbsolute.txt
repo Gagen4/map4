@@ -66,3 +66,4 @@ C:\Users\gagen\Desktop\v2\MapServer\obj\Debug\net8.0\refint\MapServer.dll
 C:\Users\gagen\Desktop\v2\MapServer\obj\Debug\net8.0\MapServer.pdb
 C:\Users\gagen\Desktop\v2\MapServer\obj\Debug\net8.0\MapServer.genruntimeconfig.cache
 C:\Users\gagen\Desktop\v2\MapServer\obj\Debug\net8.0\ref\MapServer.dll
+C:\Users\gagen\Desktop\v2\MapServer\obj\Debug\net8.0\MapServer.sourcelink.json

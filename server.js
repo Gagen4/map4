@@ -1,55 +1,127 @@
 const express = require('express');
-const sql = require('mssql');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const port = 3000;
 
-const dbConfig = {
-  server: 'DESKTOP-RF71AEO',
-  database: 'MapDataDB',
-  user: 'sa',
-  password: 'SecurePass123!',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
+// In-memory storage for users and map data
+const users = new Map();
+const mapData = new Map();
+
+app.use(cors({
+  origin: function(origin, callback) {
+    const allowedOrigins = ['http://localhost:5500', 'http://127.0.0.1:5500'];
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
-  port: 1433,
+  credentials: true
+}));
+app.use(express.json());
+app.use(cookieParser());
+
+const JWT_SECRET = 'your-secret-key'; // В продакшене использовать переменную окружения
+
+// Middleware для проверки аутентификации
+const authenticateToken = async (req, res, next) => {
+  const token = req.cookies.token;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Требуется авторизация' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Недействительный токен' });
+  }
 };
 
-const poolPromise = new sql.ConnectionPool(dbConfig)
-  .connect()
-  .then(pool => {
-    console.log('Подключено к SQL Server');
-    return pool;
-  })
-  .catch(err => {
-    console.error('Ошибка подключения к SQL Server:', err);
-    process.exit(1);
-  });
+// Регистрация
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Требуется имя пользователя и пароль' });
+  }
+
+  if (users.has(username)) {
+    return res.status(400).json({ error: 'Пользователь уже существует' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    users.set(username, {
+      password: hashedPassword,
+      createdAt: new Date(),
+      lastLogin: null
+    });
+
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ message: 'Регистрация успешна', username });
+  } catch (error) {
+    console.error('Ошибка регистрации:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Вход
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = users.get(username);
+  if (!user) {
+    return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+  }
+
+  try {
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+    }
+
+    user.lastLogin = new Date();
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ message: 'Вход выполнен успешно', username });
+  } catch (error) {
+    console.error('Ошибка входа:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Выход
+app.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'Выход выполнен успешно' });
+});
 
 // Сохранение GeoJSON
-app.post('/save', async (req, res) => {
+app.post('/save', authenticateToken, (req, res) => {
   const { fileName, geojsonData } = req.body;
+  const { username } = req.user;
+
   if (!fileName || !geojsonData) {
     return res.status(400).json({ error: 'Имя файла и данные обязательны' });
   }
 
   try {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('FileName', sql.NVarChar, fileName)
-      .input('GeoJsonData', sql.NVarChar, JSON.stringify(geojsonData))
-      .query(`
-        MERGE INTO MapObjects AS target
-        USING (SELECT @FileName AS FileName, @GeoJsonData AS GeoJsonData) AS source
-        ON target.FileName = source.FileName
-        WHEN MATCHED THEN
-          UPDATE SET GeoJsonData = source.GeoJsonData, UpdatedAt = GETDATE()
-        WHEN NOT MATCHED THEN
-          INSERT (FileName, GeoJsonData) VALUES (source.FileName, source.GeoJsonData);
-      `);
+    if (!mapData.has(username)) {
+      mapData.set(username, new Map());
+    }
+    const userMaps = mapData.get(username);
+    userMaps.set(fileName, {
+      data: geojsonData,
+      updatedAt: new Date()
+    });
     res.json({ message: 'Сохранено успешно' });
   } catch (error) {
     console.error('Ошибка сохранения:', error);
@@ -58,20 +130,16 @@ app.post('/save', async (req, res) => {
 });
 
 // Загрузка GeoJSON
-app.get('/load/:fileName', async (req, res) => {
+app.get('/load/:fileName', authenticateToken, (req, res) => {
   const { fileName } = req.params;
+  const { username } = req.user;
 
   try {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('FileName', sql.NVarChar, fileName)
-      .query('SELECT GeoJsonData FROM MapObjects WHERE FileName = @FileName');
-    
-    if (result.recordset.length > 0) {
-      res.json(JSON.parse(result.recordset[0].GeoJsonData));
-    } else {
-      res.status(404).json({ error: 'Файл не найден' });
+    const userMaps = mapData.get(username);
+    if (!userMaps || !userMaps.has(fileName)) {
+      return res.status(404).json({ error: 'Файл не найден' });
     }
+    res.json(userMaps.get(fileName).data);
   } catch (error) {
     console.error('Ошибка загрузки:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -79,18 +147,18 @@ app.get('/load/:fileName', async (req, res) => {
 });
 
 // Список файлов
-app.get('/files', async (req, res) => {
+app.get('/files', authenticateToken, (req, res) => {
+  const { username } = req.user;
   try {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .query('SELECT FileName FROM MapObjects ORDER BY CreatedAt DESC');
-    res.json(result.recordset.map(row => row.FileName));
+    const userMaps = mapData.get(username);
+    const files = userMaps ? Array.from(userMaps.keys()) : [];
+    res.json(files);
   } catch (error) {
     console.error('Ошибка получения списка файлов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-app.listen(3000, () => {
-  console.log('Сервер запущен на http://localhost:3000');
+app.listen(port, () => {
+  console.log(`Сервер запущен на http://localhost:${port}`);
 });

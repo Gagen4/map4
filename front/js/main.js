@@ -2,44 +2,33 @@
  * Главная точка входа для приложения карты.
  * @module main
  */
-import { initMap, state } from './mapInit.js';
+import { initMap } from './mapInit.js';
+import { setupMapHandlers } from './drawing.js';
 import { initTools } from './tools.js';
-import { setupMapHandlers, finishDrawing, resetDrawing } from './drawing.js';
 import { initSearch } from './search.js';
+import { initAuth, isAuthenticated } from './auth.js';
+import { state } from './mapInit.js';
 import { initCoordinates, updateFileList } from './ui.js';
 
 /**
- * Инициализирует приложение.
+ * Инициализирует карту и связанные компоненты
  */
-async function init() {
+async function initMapComponents() {
   try {
-    // Ожидание полной загрузки DOM
-    await new Promise((resolve) => {
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        resolve();
-      } else {
-        document.addEventListener('DOMContentLoaded', resolve);
-      }
-    });
-
-    console.log('DOM загружен, инициализация карты...');
-    // Инициализация карты
+    console.log('Инициализация карты...');
     await initMap();
 
-    // Проверка успешной инициализации карты
     if (!state.map) {
       throw new Error('Инициализация карты не удалась');
     }
 
     console.log('Инициализация остальных модулей...');
-    // Инициализация остальных модулей
-    initTools();
     setupMapHandlers();
+    initTools();
     initSearch();
     initCoordinates();
-    await updateFileList(); // Обновление списка файлов
+    await updateFileList();
 
-    // Обработка клавиши Escape для рисования
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         finishDrawing(state);
@@ -50,9 +39,40 @@ async function init() {
     console.log('Приложение полностью инициализировано');
   } catch (error) {
     console.error('Ошибка инициализации приложения:', error);
-    document.getElementById('error-message').textContent = 'Ошибка запуска приложения. Проверьте консоль.';
+    document.getElementById('error-message').textContent = 'Ошибка инициализации приложения';
   }
 }
 
-// Запуск приложения
-init();
+/**
+ * Инициализирует приложение.
+ */
+async function init() {
+  try {
+    console.log('Инициализация приложения...');
+    
+    // Инициализация аутентификации
+    initAuth();
+
+    // Показываем карту только если пользователь уже авторизован
+    if (isAuthenticated()) {
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('map-container').style.display = 'block';
+      await initMapComponents();
+    }
+
+    // Подписываемся на событие успешной авторизации
+    document.addEventListener('authSuccess', async () => {
+      console.log('Успешная аутентификация, инициализация карты...');
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('map-container').style.display = 'block';
+      await initMapComponents();
+    });
+
+  } catch (error) {
+    console.error('Ошибка инициализации приложения:', error);
+    document.getElementById('error-message').textContent = 'Ошибка инициализации приложения';
+  }
+}
+
+// Запуск приложения после загрузки DOM
+document.addEventListener('DOMContentLoaded', init);

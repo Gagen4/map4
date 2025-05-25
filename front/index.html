@@ -8,7 +8,20 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="map-container">
+    <div id="auth-container" class="auth-container">
+        <div class="auth-form">
+            <h2>Вход</h2>
+            <div class="error" style="display: none;"></div>
+            <input type="text" id="username" placeholder="Имя пользователя" />
+            <input type="password" id="password" placeholder="Пароль" />
+            <button id="auth-submit">Войти</button>
+            <div class="switch-mode">
+                Нет аккаунта? <span id="switch-auth">Зарегистрироваться</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="map-container" class="map-container" style="display: none;">
         <div id="map"></div>
         <div class="controls">
             <div class="search-box">
@@ -36,8 +49,13 @@
             <div id="help-text"></div>
             <div id="error-message" style="color: red;"></div>
         </div>
+        <div class="user-info">
+            <span id="username-display"></span>
+            <button id="logout-btn">Выйти</button>
+        </div>
     </div>
     <script src="leaflet/leaflet.js"></script>
+    <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

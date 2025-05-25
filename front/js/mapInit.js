@@ -44,6 +44,14 @@ async function initMap(retries = 3, delay = 500) {
         throw new Error('Leaflet не загружен. Проверьте подключение скрипта Leaflet.');
       }
 
+      // Настройка путей к иконкам маркеров
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'leaflet/images/marker-icon-2x.png',
+        iconUrl: 'leaflet/images/marker-icon.png',
+        shadowUrl: 'leaflet/images/marker-shadow.png'
+      });
+
       // Проверка наличия контейнера карты
       const mapContainer = document.getElementById('map');
       if (!mapContainer) {
@@ -92,16 +100,6 @@ async function initMap(retries = 3, delay = 500) {
       if (attempt === retries) {
         console.error('Все попытки инициализации провалились. Карта не будет отображена.');
         document.getElementById('error-message').textContent = 'Не удалось инициализировать карту. Проверьте консоль.';
-        // Запасной вариант: базовая карта
-        try {
-          if (typeof L !== 'undefined' && document.getElementById('map')) {
-            state.map = L.map('map').setView([51.505, -0.09], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(state.map);
-            console.log('Создана запасная карта');
-          }
-        } catch (fallbackError) {
-          console.error('Ошибка создания запасной карты:', fallbackError);
-        }
         return;
       }
       // Ожидание перед следующей попыткой

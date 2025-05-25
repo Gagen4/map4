@@ -3,6 +3,8 @@
  * @module ui
  */
 import { state } from './mapInit.js';
+import { exportToGeoJSON, importFromGeoJSON } from './drawing.js';
+import { isAuthenticated } from './auth.js';
 
 /**
  * Обновляет состояние кнопок инструментов.
@@ -38,62 +40,149 @@ function showHelp(message) {
 }
 
 /**
- * Инициализирует отображение координат с дебансированием.
+ * Обновляет отображение координат
  */
-function initCoordinates() {
-  if (!state.map) {
-    console.error('Карта не инициализирована для обновления координат');
-    document.getElementById('error-message').textContent = 'Карта не инициализирована';
-    return;
-  }
-
-  let timeout;
-  state.map.on('mousemove', (e) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      const lat = document.getElementById('lat');
-      const lng = document.getElementById('lng');
-      if (lat && lng) {
-        lat.textContent = e.latlng.lat.toFixed(6);
-        lng.textContent = e.latlng.lng.toFixed(6);
-      } else {
+function updateCoordinates(lat, lng) {
+    const latElement = document.getElementById('lat');
+    const lngElement = document.getElementById('lng');
+    if (latElement && lngElement) {
+        latElement.textContent = lat.toFixed(6);
+        lngElement.textContent = lng.toFixed(6);
+    } else {
         console.warn('Элементы координат (#lat, #lng) не найдены');
         document.getElementById('error-message').textContent = 'Элементы координат не найдены';
-      }
-    }, 50);
-  });
+    }
 }
 
 /**
- * Обновляет список файлов.
+ * Инициализирует отображение координат с дебаунсингом.
  */
-async function updateFileList() {
-  try {
-    const response = await fetch('http://localhost:5255/api/files', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ошибка! Статус: ${response.status}, Сообщение: ${errorText}`);
+function initCoordinates() {
+    if (!state.map) {
+        console.error('Карта не инициализирована для обновления координат');
+        document.getElementById('error-message').textContent = 'Карта не инициализирована';
+        return;
     }
-    const files = await response.json();
-    const select = document.getElementById('load-file-name');
-    if (!select) {
-      throw new Error('Элемент #load-file-name не найден');
-    }
-    select.innerHTML = '<option value="">Выберите файл</option>';
-    files.forEach(file => {
-      const option = document.createElement('option');
-      option.value = file;
-      option.textContent = file;
-      select.appendChild(option);
+
+    let timeout;
+    state.map.on('mousemove', (e) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            updateCoordinates(e.latlng.lat, e.latlng.lng);
+        }, 50);
     });
-    showHelp('Список файлов обновлён');
-  } catch (error) {
-    console.error('Ошибка обновления списка файлов:', error);
-    showHelp(`Ошибка загрузки списка файлов: ${error.message}`);
-  }
 }
 
-export { updateToolButtons, showHelp, initCoordinates, updateFileList };
+/**
+ * Обновляет список файлов
+ */
+async function updateFileList() {
+    if (!isAuthenticated()) {
+        console.log('Пользователь не авторизован');
+        return;
+    }
+
+    try {
+        const response = await fetch('http://localhost:3000/files', {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Ошибка получения списка файлов');
+        
+        const files = await response.json();
+        const select = document.getElementById('load-file-name');
+        select.innerHTML = '<option value="">Выберите файл...</option>';
+        files.forEach(fileName => {
+            const option = document.createElement('option');
+            option.value = fileName;
+            option.textContent = fileName;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки списка файлов:', error);
+        document.getElementById('error-message').textContent = 'Ошибка загрузки списка файлов';
+    }
+}
+
+/**
+ * Сохраняет текущее состояние карты
+ */
+async function saveMap() {
+    if (!isAuthenticated()) {
+        document.getElementById('error-message').textContent = 'Необходимо войти в систему';
+        return;
+    }
+
+    const fileName = document.getElementById('save-file-name').value;
+    if (!fileName) {
+        document.getElementById('error-message').textContent = 'Введите имя файла';
+        return;
+    }
+
+    try {
+        const geojsonData = exportToGeoJSON();
+        const response = await fetch('http://localhost:3000/save', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ fileName, geojsonData }),
+        });
+
+        if (!response.ok) throw new Error('Ошибка сохранения');
+        
+        document.getElementById('save-file-name').value = '';
+        await updateFileList();
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        document.getElementById('error-message').textContent = 'Ошибка сохранения карты';
+    }
+}
+
+/**
+ * Загружает сохраненное состояние карты
+ */
+async function loadMap() {
+    if (!isAuthenticated()) {
+        document.getElementById('error-message').textContent = 'Необходимо войти в систему';
+        return;
+    }
+
+    const fileName = document.getElementById('load-file-name').value;
+    if (!fileName) {
+        document.getElementById('error-message').textContent = 'Выберите файл для загрузки';
+        return;
+    }
+
+    try {
+        const response = await fetch(`http://localhost:3000/load/${fileName}`, {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        
+        const geojsonData = await response.json();
+        state.drawnItems.clearLayers();
+        importFromGeoJSON(geojsonData);
+    } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        document.getElementById('error-message').textContent = 'Ошибка загрузки карты';
+    }
+}
+
+/**
+ * Инициализация обработчиков событий для UI
+ */
+function initUI() {
+    document.getElementById('save-map').addEventListener('click', saveMap);
+    document.getElementById('load-map').addEventListener('click', loadMap);
+}
+
+export { 
+    updateToolButtons, 
+    showHelp, 
+    initCoordinates, 
+    updateFileList, 
+    saveMap, 
+    loadMap,
+    initUI 
+};
