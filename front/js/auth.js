@@ -203,10 +203,24 @@ async function checkAuthStatus() {
             console.log('Декодированное имя пользователя:', username);
             
             if (username) {
-                currentUser = { username };
-                updateAuthUI();
-                dispatchAuthSuccess();
-                return true;
+                // Получаем информацию о пользователе с сервера
+                const response = await fetch('http://127.0.0.1:3000/user/info', {
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    currentUser = {
+                        username: userData.username,
+                        isAdmin: userData.isAdmin
+                    };
+                    updateAuthUI();
+                    dispatchAuthSuccess();
+                    return true;
+                }
             }
         }
         return false;
@@ -243,18 +257,27 @@ function updateAuthUI() {
     const mapContainer = document.getElementById('map-container');
     const userInfo = document.querySelector('.user-info');
     const usernameDisplay = document.getElementById('username-display');
+    const adminPanel = document.getElementById('admin-panel');
 
     if (currentUser) {
         console.log('Показываем интерфейс для авторизованного пользователя');
         authContainer.style.display = 'none';
         mapContainer.style.display = 'block';
         userInfo.style.display = 'block';
-        usernameDisplay.textContent = currentUser.username;
+        usernameDisplay.textContent = currentUser.username + (currentUser.isAdmin ? ' (Admin)' : '');
+        
+        // Показываем или скрываем админ-панель
+        if (adminPanel) {
+            adminPanel.style.display = currentUser.isAdmin ? 'block' : 'none';
+        }
     } else {
         console.log('Показываем форму входа');
         authContainer.style.display = 'flex';
         mapContainer.style.display = 'none';
         userInfo.style.display = 'none';
+        if (adminPanel) {
+            adminPanel.style.display = 'none';
+        }
         document.getElementById('username').value = '';
         document.getElementById('password').value = '';
     }

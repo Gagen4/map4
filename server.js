@@ -84,14 +84,24 @@ function saveData() {
 // Load initial data
 loadData();
 
+// CORS configuration
 app.use(cors({
-  origin: 'http://127.0.0.1:5500',
+  origin: ['http://127.0.0.1:5500', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://localhost:5500'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
 }));
+
 app.use(express.json());
 app.use(cookieParser());
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors());
+
+// Add a test endpoint to verify the server is running
+app.get('/test', (req, res) => {
+  res.json({ message: 'Server is running' });
+});
 
 const JWT_SECRET = 'your-secret-key'; // В продакшене использовать переменную окружения
 
@@ -120,12 +130,24 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Пользователь не найден' });
     }
     
-    req.user = decoded;
+    const userData = users.get(decoded.username);
+    req.user = {
+      username: decoded.username,
+      isAdmin: userData.isAdmin || false
+    };
     next();
   } catch (error) {
     console.log('Ошибка проверки токена:', error.message);
     return res.status(403).json({ error: 'Недействительный токен' });
   }
+};
+
+// Middleware для проверки прав администратора
+const isAdmin = (req, res, next) => {
+  if (!req.user || !users.get(req.user.username).isAdmin) {
+    return res.status(403).json({ error: 'Требуются права администратора' });
+  }
+  next();
 };
 
 // Регистрация
@@ -223,7 +245,11 @@ app.post('/login', async (req, res) => {
     res.cookie('token', token, cookieOptions);
     console.log('Cookie установлен');
     
-    res.json({ message: 'Вход выполнен успешно', username });
+    res.json({ 
+      message: 'Вход выполнен успешно', 
+      username,
+      isAdmin: user.isAdmin || false
+    });
     console.log('Ответ отправлен');
   } catch (error) {
     console.error('Ошибка входа:', error);
@@ -305,6 +331,51 @@ app.get('/files', authenticateToken, (req, res) => {
     console.error('Ошибка получения списка файлов:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
+});
+
+// Получение списка всех файлов (для админа)
+app.get('/admin/files', authenticateToken, isAdmin, (req, res) => {
+  try {
+    const allFiles = [];
+    for (const [username, userMaps] of mapData.entries()) {
+      for (const [fileName, fileData] of userMaps.entries()) {
+        allFiles.push({
+          username,
+          fileName,
+          createdAt: fileData.createdAt
+        });
+      }
+    }
+    res.json(allFiles);
+  } catch (error) {
+    console.error('Ошибка получения списка файлов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Загрузка файла любого пользователя (для админа)
+app.get('/admin/load/:username/:fileName', authenticateToken, isAdmin, (req, res) => {
+  const { username, fileName } = req.params;
+
+  try {
+    const userMaps = mapData.get(username);
+    if (!userMaps || !userMaps.has(fileName)) {
+      return res.status(404).json({ error: 'Файл не найден' });
+    }
+    res.json(userMaps.get(fileName).data);
+  } catch (error) {
+    console.error('Ошибка загрузки:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Получение информации о текущем пользователе
+app.get('/user/info', authenticateToken, (req, res) => {
+  console.log('Запрос информации о пользователе:', req.user);
+  res.json({
+    username: req.user.username,
+    isAdmin: req.user.isAdmin
+  });
 });
 
 app.listen(port, () => {

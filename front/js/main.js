@@ -8,7 +8,8 @@ import { initTools } from './tools.js';
 import { initSearch } from './search.js';
 import { initAuth, isAuthenticated } from './auth.js';
 import { state } from './mapInit.js';
-import { initCoordinates, updateFileList } from './ui.js';
+import { initCoordinates, updateFileList, initUI } from './ui.js';
+import { initAdmin } from './admin.js';
 
 /**
  * Инициализирует карту и связанные компоненты
@@ -67,6 +68,9 @@ async function init() {
       document.getElementById('map-container').style.display = 'block';
       await initMapComponents();
     });
+
+    initUI();
+    initAdmin();
 
   } catch (error) {
     console.error('Ошибка инициализации приложения:', error);

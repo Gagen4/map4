@@ -255,3 +255,49 @@ body, html {
     stroke-width: 3px !important;
     fill-opacity: 0.5 !important;
 }
+
+.admin-panel {
+    background: #f8f9fa;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.admin-panel h3 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-size: 16px;
+}
+
+.admin-files {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#admin-file-list {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: white;
+}
+
+#admin-file-list option {
+    padding: 4px 8px;
+}
+
+#admin-load-file {
+    background-color: #2c3e50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#admin-load-file:hover {
+    background-color: #34495e;
+}
