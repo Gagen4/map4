@@ -16,6 +16,9 @@ const MAP_DATA_FILE = path.join(process.cwd(), 'mapData.json');
 console.log('Users file path:', USERS_FILE);
 console.log('Map data file path:', MAP_DATA_FILE);
 
+// Serve static files from the front directory
+app.use('/front', express.static(path.join(__dirname, 'front')));
+
 // Initialize storage
 let users = new Map();
 let mapData = new Map();

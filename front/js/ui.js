@@ -158,6 +158,7 @@ async function saveMap() {
         
         document.getElementById('save-file-name').value = '';
         await updateFileList();
+        showHelp('Карта успешно сохранена');
     } catch (error) {
         console.error('Ошибка сохранения:', error);
         document.getElementById('error-message').textContent = 'Ошибка сохранения карты';

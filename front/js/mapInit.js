@@ -2,6 +2,8 @@
  * Инициализирует карту Leaflet и глобальное состояние.
  * @module mapInit
  */
+import { loadMapData } from './api.js';
+import { importFromGeoJSON } from './drawing.js';
 
 /**
  * Глобальное состояние приложения карты.
@@ -27,6 +29,38 @@ const state = {
 };
 
 /**
+ * Настраивает иконки маркеров Leaflet.
+ */
+function configureMarkerIcons() {
+  // Создаем HTML-маркер с использованием эмодзи
+  const DefaultIcon = L.divIcon({
+    html: '📍',
+    className: 'custom-div-icon',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -30]
+  });
+
+  // Устанавливаем иконку по умолчанию для всех маркеров
+  L.Marker.prototype.options.icon = DefaultIcon;
+
+  // Добавляем стили для маркера
+  const style = document.createElement('style');
+  style.textContent = `
+    .custom-div-icon {
+      background: none;
+      border: none;
+      font-size: 24px;
+      text-align: center;
+      line-height: 30px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  return Promise.resolve();
+}
+
+/**
  * Инициализирует карту Leaflet с ретраями.
  * @param {number} [retries=3] - Количество попыток.
  * @param {number} [delay=500] - Задержка между попытками в мс.
@@ -44,13 +78,8 @@ async function initMap(retries = 3, delay = 500) {
         throw new Error('Leaflet не загружен. Проверьте подключение скрипта Leaflet.');
       }
 
-      // Настройка путей к иконкам маркеров
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'leaflet/images/marker-icon-2x.png',
-        iconUrl: 'leaflet/images/marker-icon.png',
-        shadowUrl: 'leaflet/images/marker-shadow.png'
-      });
+      // Настройка иконок маркеров
+      configureMarkerIcons();
 
       // Проверка наличия контейнера карты
       const mapContainer = document.getElementById('map');

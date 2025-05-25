@@ -4,23 +4,74 @@
  */
 import { state } from './mapInit.js';
 import { selectObject } from './selection.js';
+import { saveMapData } from './api.js';
+
+// Таймер для дебаунсинга сохранения
+let saveTimeout = null;
+let lastSaveTime = 0;
+const MIN_SAVE_INTERVAL = 2000; // Минимальный интервал между сохранениями (2 секунды)
 
 /**
  * Настраивает обработчики кликов по карте для рисования.
  */
 function setupMapHandlers() {
   if (!state.map) return;
+  
+  // Предотвращаем отправку формы по умолчанию
+  document.addEventListener('submit', (e) => {
+    e.preventDefault();
+  });
+
   state.map.on('click', (e) => {
     if (state.currentTool === 'marker') {
+      e.originalEvent.preventDefault();
       addMarker(e.latlng);
     } else if (state.currentTool === 'line') {
+      e.originalEvent.preventDefault();
       addLinePoint(e.latlng);
     } else if (state.currentTool === 'polygon') {
+      e.originalEvent.preventDefault();
       addPolygonPoint(e.latlng);
     } else if (state.currentTool === 'delete') {
+      e.originalEvent.preventDefault();
       selectObject(e.latlng);
     }
   });
+}
+
+/**
+ * Сохраняет текущее состояние карты на сервер с дебаунсингом.
+ * @param {boolean} [forceSave=false] - Принудительное сохранение, игнорируя дебаунсинг
+ */
+async function saveCurrentState(forceSave = false) {
+  try {
+    const now = Date.now();
+    
+    // Если это не принудительное сохранение, применяем дебаунсинг
+    if (!forceSave) {
+      // Проверяем, прошло ли достаточно времени с последнего сохранения
+      if (now - lastSaveTime < MIN_SAVE_INTERVAL) {
+        // Если нет, отменяем предыдущий таймер и устанавливаем новый
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+        }
+        saveTimeout = setTimeout(() => saveCurrentState(true), MIN_SAVE_INTERVAL);
+        return;
+      }
+    }
+
+    // Обновляем время последнего сохранения
+    lastSaveTime = now;
+
+    // Не сохраняем автоматически, только если это принудительное сохранение
+    if (forceSave) {
+      const geojson = exportToGeoJSON();
+      await saveMapData(geojson);
+      console.log('Данные карты успешно сохранены');
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении данных карты:', error);
+  }
 }
 
 /**
@@ -32,9 +83,27 @@ function addMarker(latlng) {
     console.error('Leaflet не загружен');
     return;
   }
-  const marker = L.marker(latlng, { icon: new L.Icon.Default() }).addTo(state.drawnItems);
-  marker.bindPopup('Маркер').openPopup();
-  marker.on('click', () => selectObject(marker));
+
+  try {
+    const marker = L.marker(latlng, { 
+      draggable: true // Делаем маркер перетаскиваемым
+    }).addTo(state.drawnItems);
+    
+    marker.bindPopup('Маркер').openPopup();
+    
+    // Добавляем обработчики событий для маркера
+    marker.on('click', (e) => {
+      e.originalEvent?.preventDefault();
+      selectObject(marker);
+    });
+    
+    // Не сохраняем автоматически при перетаскивании
+    marker.on('dragend', (e) => {
+      e.originalEvent?.preventDefault();
+    });
+  } catch (error) {
+    console.error('Ошибка при добавлении маркера:', error);
+  }
 }
 
 /**
@@ -197,29 +266,46 @@ function importFromGeoJSON(geojson) {
     return;
   }
 
-  state.drawnItems.clearLayers();
-
-  if (geojson.type !== 'FeatureCollection') {
-    console.error('Неверный формат GeoJSON');
+  if (!geojson || !geojson.features) {
+    console.error('Некорректный формат GeoJSON');
     return;
   }
 
+  state.drawnItems.clearLayers();
+
   geojson.features.forEach((feature) => {
-    if (feature.geometry.type === 'Point') {
-      const latlng = L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
-      const marker = L.marker(latlng, { icon: new L.Icon.Default() }).addTo(state.drawnItems);
-      marker.bindPopup(feature.properties.name || 'Маркер');
-      marker.on('click', () => selectObject(marker));
-    } else if (feature.geometry.type === 'LineString') {
-      const latlngs = feature.geometry.coordinates.map(([lng, lat]) => L.latLng(lat, lng));
-      const line = L.polyline(latlngs, { color: 'red' }).addTo(state.drawnItems);
-      line.bindPopup(feature.properties.name || 'Линия');
-      line.on('click', () => selectObject(line));
-    } else if (feature.geometry.type === 'Polygon') {
-      const latlngs = feature.geometry.coordinates[0].map(([lng, lat]) => L.latLng(lat, lng));
-      const polygon = L.polygon([latlngs], { color: 'green' }).addTo(state.drawnItems);
-      polygon.bindPopup(feature.properties.name || 'Полигон');
-      polygon.on('click', () => selectObject(polygon));
+    try {
+      if (feature.geometry.type === 'Point') {
+        const [lng, lat] = feature.geometry.coordinates;
+        const marker = L.marker([lat, lng], { 
+          draggable: true // Делаем маркер перетаскиваемым
+        }).addTo(state.drawnItems);
+        
+        if (feature.properties && feature.properties.name) {
+          marker.bindPopup(feature.properties.name);
+        }
+        
+        marker.on('click', () => selectObject(marker));
+        marker.on('dragend', () => saveCurrentState());
+      } else if (feature.geometry.type === 'LineString') {
+        const coordinates = feature.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        const line = L.polyline(coordinates, { color: 'red' })
+          .addTo(state.drawnItems);
+        if (feature.properties && feature.properties.name) {
+          line.bindPopup(feature.properties.name);
+        }
+        line.on('click', () => selectObject(line));
+      } else if (feature.geometry.type === 'Polygon') {
+        const coordinates = feature.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
+        const polygon = L.polygon([coordinates], { color: 'green' })
+          .addTo(state.drawnItems);
+        if (feature.properties && feature.properties.name) {
+          polygon.bindPopup(feature.properties.name);
+        }
+        polygon.on('click', () => selectObject(polygon));
+      }
+    } catch (error) {
+      console.error('Ошибка при импорте объекта:', error);
     }
   });
 }
