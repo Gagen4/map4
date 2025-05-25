@@ -4,7 +4,7 @@
  */
 import { state } from './mapInit.js';
 import { exportToGeoJSON, importFromGeoJSON } from './drawing.js';
-import { isAuthenticated } from './auth.js';
+import { isAuthenticated, getCurrentUser } from './auth.js';
 
 /**
  * Обновляет состояние кнопок инструментов.
@@ -83,12 +83,28 @@ async function updateFileList() {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/files', {
-            credentials: 'include'
+        console.log('Запрос списка файлов...');
+        console.log('Текущие cookies:', document.cookie);
+        
+        const response = await fetch('http://127.0.0.1:3000/files', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
         });
-        if (!response.ok) throw new Error('Ошибка получения списка файлов');
+
+        if (!response.ok) {
+            console.error('Ошибка получения списка файлов:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('Текст ошибки:', errorText);
+            throw new Error('Ошибка получения списка файлов');
+        }
         
         const files = await response.json();
+        console.log('Получен список файлов:', files);
+        
         const select = document.getElementById('load-file-name');
         select.innerHTML = '<option value="">Выберите файл...</option>';
         files.forEach(fileName => {
@@ -119,17 +135,26 @@ async function saveMap() {
     }
 
     try {
+        const currentUser = getCurrentUser();
+        const fullFileName = `${currentUser.username}_${fileName}`;
         const geojsonData = exportToGeoJSON();
-        const response = await fetch('http://localhost:3000/save', {
+        
+        console.log('Сохранение файла:', fullFileName);
+        const response = await fetch('http://127.0.0.1:3000/save', {
             method: 'POST',
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({ fileName, geojsonData }),
+            body: JSON.stringify({ fileName: fullFileName, geojsonData }),
         });
 
-        if (!response.ok) throw new Error('Ошибка сохранения');
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка сохранения:', response.status, errorText);
+            throw new Error('Ошибка сохранения');
+        }
         
         document.getElementById('save-file-name').value = '';
         await updateFileList();
@@ -155,10 +180,20 @@ async function loadMap() {
     }
 
     try {
-        const response = await fetch(`http://localhost:3000/load/${fileName}`, {
-            credentials: 'include'
+        console.log('Загрузка файла:', fileName);
+        const response = await fetch(`http://127.0.0.1:3000/load/${fileName}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
         });
-        if (!response.ok) throw new Error('Ошибка загрузки');
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка загрузки:', response.status, errorText);
+            throw new Error('Ошибка загрузки');
+        }
         
         const geojsonData = await response.json();
         state.drawnItems.clearLayers();

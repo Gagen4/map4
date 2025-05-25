@@ -1,0 +1,116 @@
+{
+  "gagen": {
+    "123": {
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.08995056152343751,
+                51.524552215462975
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.08806228637695314,
+                51.50532341149335
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.08617401123046875,
+                51.49570596538067
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.10986328125000001,
+                51.481917419799935
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.11089324951171876,
+                51.481810515561335
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.13355255126953128,
+                51.48875876983271
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.08033752441406251,
+                51.50104924156018
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -0.07123947143554689,
+                51.49356847951044
+              ]
+            },
+            "properties": {
+              "name": "Маркер"
+            }
+          }
+        ]
+      },
+      "updatedAt": "2025-05-25T11:03:57.948Z"
+    }
+  }
+}

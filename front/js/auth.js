@@ -73,46 +73,100 @@ function hideError() {
  * Регистрация нового пользователя
  */
 async function register(username, password) {
-    const response = await fetch('http://localhost:3000/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-    });
+    try {
+        const response = await fetch('http://127.0.0.1:3000/register', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ username, password }),
+        });
 
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.error || 'Ошибка регистрации');
+        const data = await response.json();
+        if (!response.ok) {
+            if (response.status === 400 && data.error === 'Пользователь уже существует') {
+                return await login(username, password);
+            }
+            throw new Error(data.error || 'Ошибка регистрации');
+        }
+
+        // Verify authentication after registration
+        const verifyResponse = await fetch('http://127.0.0.1:3000/files', {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!verifyResponse.ok) {
+            throw new Error('Ошибка аутентификации после регистрации');
+        }
+
+        currentUser = { username };
+        updateAuthUI();
+        dispatchAuthSuccess();
+    } catch (error) {
+        console.error('Ошибка при регистрации:', error);
+        throw error;
     }
-
-    currentUser = { username };
-    updateAuthUI();
-    dispatchAuthSuccess();
 }
 
 /**
  * Вход пользователя
  */
 async function login(username, password) {
-    const response = await fetch('http://localhost:3000/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-    });
+    try {
+        const response = await fetch('http://127.0.0.1:3000/login', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ username, password }),
+        });
 
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.error || 'Ошибка входа');
+        const data = await response.json();
+        
+        // Проверяем наличие cookie после входа
+        const cookies = document.cookie;
+        console.log('Cookies после входа:', cookies);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                currentUser = null;
+                document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            }
+            throw new Error(data.error || 'Ошибка входа');
+        }
+
+        // Сразу устанавливаем currentUser
+        currentUser = { username };
+        updateAuthUI();
+        dispatchAuthSuccess();
+
+        // Проверяем аутентификацию после установки UI
+        try {
+            const verifyResponse = await fetch('http://127.0.0.1:3000/files', {
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!verifyResponse.ok) {
+                throw new Error('Ошибка аутентификации после входа');
+            }
+        } catch (error) {
+            console.error('Ошибка проверки аутентификации:', error);
+            // Не выбрасываем ошибку, так как вход уже выполнен
+        }
+    } catch (error) {
+        console.error('Ошибка при входе:', error);
+        throw error;
     }
-
-    currentUser = { username };
-    updateAuthUI();
-    dispatchAuthSuccess();
 }
 
 /**
@@ -120,7 +174,7 @@ async function login(username, password) {
  */
 async function logout() {
     try {
-        await fetch('http://localhost:3000/logout', {
+        await fetch('http://127.0.0.1:3000/logout', {
             method: 'POST',
             credentials: 'include',
         });
@@ -138,18 +192,27 @@ async function logout() {
  */
 async function checkAuthStatus() {
     try {
+        console.log('Проверка статуса аутентификации...');
+        console.log('Текущие cookies:', document.cookie);
+        
         const token = document.cookie.split('; ').find(row => row.startsWith('token='));
+        console.log('Найден токен:', token);
+        
         if (token) {
-            // Если есть токен, пытаемся получить информацию о пользователе
             const username = decodeToken(token.split('=')[1]);
+            console.log('Декодированное имя пользователя:', username);
+            
             if (username) {
                 currentUser = { username };
                 updateAuthUI();
                 dispatchAuthSuccess();
+                return true;
             }
         }
+        return false;
     } catch (error) {
         console.error('Ошибка проверки аутентификации:', error);
+        return false;
     }
 }
 
@@ -175,17 +238,20 @@ function decodeToken(token) {
  * Обновление UI в зависимости от состояния аутентификации
  */
 function updateAuthUI() {
+    console.log('Обновление UI, currentUser:', currentUser);
     const authContainer = document.getElementById('auth-container');
     const mapContainer = document.getElementById('map-container');
     const userInfo = document.querySelector('.user-info');
     const usernameDisplay = document.getElementById('username-display');
 
     if (currentUser) {
+        console.log('Показываем интерфейс для авторизованного пользователя');
         authContainer.style.display = 'none';
         mapContainer.style.display = 'block';
         userInfo.style.display = 'block';
         usernameDisplay.textContent = currentUser.username;
     } else {
+        console.log('Показываем форму входа');
         authContainer.style.display = 'flex';
         mapContainer.style.display = 'none';
         userInfo.style.display = 'none';

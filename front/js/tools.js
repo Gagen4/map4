@@ -4,7 +4,8 @@
  */
 import { state } from './mapInit.js';
 import { finishDrawing, resetDrawing, exportToGeoJSON, importFromGeoJSON } from './drawing.js';
-import { updateToolButtons, showHelp } from './ui.js';
+import { updateToolButtons, showHelp, updateFileList } from './ui.js';
+import { isAuthenticated } from './auth.js';
 
 /**
  * Инициализирует обработчики событий для кнопок инструментов.
@@ -79,68 +80,96 @@ function initTools() {
     showHelp('Все объекты очищены');
   });
 
-  // ... (остальной код без изменений)
-
-// Сохранение карты
-buttons.save.addEventListener('click', async () => {
-  const fileNameInput = document.getElementById('save-file-name');
-  const fileName = fileNameInput.value.trim();
-  if (!fileName) {
-    showHelp('Ошибка: Введите имя файла для сохранения');
-    return;
-  }
-
-  const geojson = exportToGeoJSON();
-  if (!geojson || geojson.features.length === 0) {
-    showHelp('Ошибка: На карте нет объектов для сохранения');
-    return;
-  }
-
-  try {
-    const response = await fetch('http://localhost:5255/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName, geoJsonData: JSON.stringify(geojson) })
-    });
-    if (!response.ok) {
-      console.error('Response:', await response.text());
-      throw new Error(`HTTP ошибка! Статус: ${response.status}`);
+  // Сохранение карты
+  buttons.save.addEventListener('click', async () => {
+    if (!isAuthenticated()) {
+      showHelp('Ошибка: Необходимо войти в систему');
+      return;
     }
-    const result = await response.json();
-    showHelp(`Сохранено: ${result.message}`);
-    await updateFileList();
-  } catch (error) {
-    console.error('Ошибка сохранения:', error);
-    showHelp('Ошибка при сохранении. Проверьте консоль.');
-  }
-});
 
-// Загрузка карты
-buttons.load.addEventListener('click', async () => {
-  const fileSelect = document.getElementById('load-file-name');
-  const fileName = fileSelect.value;
-  if (!fileName) {
-    showHelp('Ошибка: Выберите файл для загрузки');
-    return;
-  }
-
-  try {
-    const response = await fetch(`http://localhost:5255/api/load/${fileName}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (!response.ok) {
-      console.error('Response:', await response.text());
-      throw new Error(`HTTP ошибка! Статус: ${response.status}`);
+    const fileNameInput = document.getElementById('save-file-name');
+    const fileName = fileNameInput.value.trim();
+    if (!fileName) {
+      showHelp('Ошибка: Введите имя файла для сохранения');
+      return;
     }
-    const geojson = await response.json();
-    importFromGeoJSON(geojson);
-    showHelp(`Загружен файл: ${fileName}`);
-  } catch (error) {
-    console.error('Ошибка загрузки:', error);
-    showHelp('Ошибка при загрузке. Проверьте консоль.');
-  }
-});
+
+    const geojson = exportToGeoJSON();
+    if (!geojson || geojson.features.length === 0) {
+      showHelp('Ошибка: На карте нет объектов для сохранения');
+      return;
+    }
+
+    try {
+      console.log('Сохранение файла:', fileName);
+      const response = await fetch('http://127.0.0.1:3000/save', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ 
+          fileName,
+          geojsonData: geojson
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Ошибка сохранения:', response.status, errorText);
+        throw new Error('Ошибка сохранения');
+      }
+
+      const result = await response.json();
+      showHelp(`Сохранено: ${result.message}`);
+      fileNameInput.value = '';
+      await updateFileList();
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+      showHelp('Ошибка при сохранении. Проверьте консоль.');
+    }
+  });
+
+  // Загрузка карты
+  buttons.load.addEventListener('click', async () => {
+    if (!isAuthenticated()) {
+      showHelp('Ошибка: Необходимо войти в систему');
+      return;
+    }
+
+    const fileSelect = document.getElementById('load-file-name');
+    const fileName = fileSelect.value;
+    if (!fileName) {
+      showHelp('Ошибка: Выберите файл для загрузки');
+      return;
+    }
+
+    try {
+      console.log('Загрузка файла:', fileName);
+      const response = await fetch(`http://127.0.0.1:3000/load/${fileName}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Ошибка загрузки:', response.status, errorText);
+        throw new Error('Ошибка загрузки');
+      }
+
+      const geojson = await response.json();
+      state.drawnItems.clearLayers();
+      importFromGeoJSON(geojson);
+      showHelp(`Загружен файл: ${fileName}`);
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+      showHelp('Ошибка при загрузке. Проверьте консоль.');
+    }
+  });
 }
 
 export { initTools };
