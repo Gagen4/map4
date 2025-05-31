@@ -1,6 +1,0 @@
-@MapServer_HostAddress = http://localhost:5255
-
-GET {{MapServer_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
