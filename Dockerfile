@@ -1,9 +1,9 @@
 # This Dockerfile sets up a Node.js application with PM2 for process management.    
 # Use Node.js 18 as the base image
-FROM node:18-slim
+FROM node:18-alpine
 
 # Set working directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Install PM2 globally
 RUN npm install -g pm2
@@ -28,4 +28,4 @@ USER node
 EXPOSE 3000
 
 # Start the application with PM2
-CMD ["pm2-runtime", "server.js"] 
+CMD ["node", "server.js"] 

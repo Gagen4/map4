@@ -86,33 +86,99 @@ async function updateFileList() {
         console.log('Запрос списка файлов...');
         console.log('Текущие cookies:', document.cookie);
         
-        const response = await fetch('http://127.0.0.1:3000/files', {
-            method: 'GET',
+        // Сначала проверяем, является ли пользователь администратором
+        const userResponse = await fetch('http://127.0.0.1:3000/user/info', {
             credentials: 'include',
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
             }
         });
 
-        if (!response.ok) {
-            console.error('Ошибка получения списка файлов:', response.status, response.statusText);
-            const errorText = await response.text();
+        if (!userResponse.ok) {
+            console.error('Ошибка получения информации о пользователе:', userResponse.status, userResponse.statusText);
+            const errorText = await userResponse.text();
             console.error('Текст ошибки:', errorText);
-            throw new Error('Ошибка получения списка файлов');
+            throw new Error('Ошибка получения информации о пользователе');
         }
         
-        const files = await response.json();
-        console.log('Получен список файлов:', files);
-        
-        const select = document.getElementById('load-file-name');
-        select.innerHTML = '<option value="">Выберите файл...</option>';
-        files.forEach(fileName => {
-            const option = document.createElement('option');
-            option.value = fileName;
-            option.textContent = fileName;
-            select.appendChild(option);
-        });
+        const user = await userResponse.json();
+        console.log('Информация о пользователе:', user);
+        let files = [];
+
+        if (user.isAdmin || user.username === 'admin') {
+            console.log('Загрузка списка файлов для администратора...');
+            const adminResponse = await fetch('http://127.0.0.1:3000/admin/files', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!adminResponse.ok) {
+                console.error('Ошибка получения списка файлов для админа:', adminResponse.status, adminResponse.statusText);
+                const errorText = await adminResponse.text();
+                console.error('Текст ошибки:', errorText);
+                throw new Error('Ошибка получения списка файлов для администратора');
+            }
+            
+            files = await adminResponse.json();
+            console.log('Получен список файлов для админа:', files);
+            
+            const select = document.getElementById('admin-file-list');
+            if (select) {
+                select.innerHTML = '<option value="">Выберите файл...</option>';
+                files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = `${file.username}/${file.fileName}`;
+                    option.textContent = `${file.username} - ${file.fileName}`;
+                    select.appendChild(option);
+                });
+                // Показываем панель администратора
+                const adminPanel = document.getElementById('admin-panel');
+                if (adminPanel) {
+                    adminPanel.style.display = 'block';
+                } else {
+                    console.error('Элемент admin-panel не найден в DOM');
+                }
+            } else {
+                console.error('Элемент admin-file-list не найден в DOM');
+            }
+        } else {
+            console.log('Загрузка списка файлов для обычного пользователя...');
+            const response = await fetch('http://127.0.0.1:3000/files', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Ошибка получения списка файлов:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Текст ошибки:', errorText);
+                throw new Error('Ошибка получения списка файлов');
+            }
+            
+            files = await response.json();
+            console.log('Получен список файлов:', files);
+            
+            const select = document.getElementById('load-file-name');
+            if (select) {
+                select.innerHTML = '<option value="">Выберите файл...</option>';
+                files.forEach(fileName => {
+                    const option = document.createElement('option');
+                    option.value = fileName;
+                    option.textContent = fileName;
+                    select.appendChild(option);
+                });
+            } else {
+                console.error('Элемент load-file-name не найден в DOM');
+            }
+        }
     } catch (error) {
         console.error('Ошибка загрузки списка файлов:', error);
         document.getElementById('error-message').textContent = 'Ошибка загрузки списка файлов';
@@ -220,5 +286,5 @@ export {
     updateFileList, 
     saveMap, 
     loadMap,
-    initUI 
+    initUI
 };

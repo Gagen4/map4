@@ -3,192 +3,77 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
-const fs = require('fs');
-const path = require('path');
-
 const app = express();
 const port = 3000;
 
-// File paths
-const USERS_FILE = path.join(process.cwd(), 'users.json');
-const MAP_DATA_FILE = path.join(process.cwd(), 'mapData.json');
+const db = require('./models/db');
 
-console.log('Users file path:', USERS_FILE);
-console.log('Map data file path:', MAP_DATA_FILE);
-
-// Serve static files from the front directory
-app.use('/front', express.static(path.join(__dirname, 'front')));
-
-// Initialize storage
-let users = new Map();
-let mapData = new Map();
-
-// Load data from files
-function loadData() {
-    console.log('Загрузка данных...');
-    try {
-        // Load users
-        if (fs.existsSync(USERS_FILE)) {
-            console.log('Файл пользователей найден');
-            const userData = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-            users = new Map(Object.entries(userData.users));
-            console.log('Загружены пользователи:', Array.from(users.keys()));
-        } else {
-            console.log('Файл пользователей не существует, создаем новый');
-            fs.writeFileSync(USERS_FILE, JSON.stringify({ users: {} }, null, 2));
-        }
-
-        // Load map data
-        if (fs.existsSync(MAP_DATA_FILE)) {
-            console.log('Файл карт найден');
-            const data = JSON.parse(fs.readFileSync(MAP_DATA_FILE, 'utf8'));
-            mapData = new Map();
-            Object.entries(data).forEach(([username, files]) => {
-                mapData.set(username, new Map(Object.entries(files)));
-            });
-            console.log('Загружены карты для пользователей:', Array.from(mapData.keys()));
-        } else {
-            console.log('Файл карт не существует, создаем новый');
-            fs.writeFileSync(MAP_DATA_FILE, JSON.stringify({}, null, 2));
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        users = new Map();
-        mapData = new Map();
-    }
-}
-
-// Save data to files
-function saveData() {
-    console.log('Сохранение данных...');
-    try {
-        // Save users
-        const userData = {
-            users: Object.fromEntries(users)
-        };
-        fs.writeFileSync(USERS_FILE, JSON.stringify(userData, null, 2));
-
-        // Save map data
-        const mapDataObj = {};
-        for (const [username, files] of mapData.entries()) {
-            mapDataObj[username] = Object.fromEntries(files);
-        }
-        fs.writeFileSync(MAP_DATA_FILE, JSON.stringify(mapDataObj, null, 2));
-        
-        console.log('Данные успешно сохранены');
-    } catch (error) {
-        console.error('Ошибка сохранения данных:', error);
-    }
-}
-
-// Load initial data
-loadData();
-
-// CORS configuration
+// Middleware
 app.use(cors({
-  origin: ['http://127.0.0.1:5500', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://localhost:5500'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    origin: 'http://127.0.0.1:5500',
+    credentials: true
 }));
-
 app.use(express.json());
 app.use(cookieParser());
 
-// Add OPTIONS handling for preflight requests
-app.options('*', cors());
+// Middleware для проверки JWT
+async function authenticateToken(req, res, next) {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: 'Требуется аутентификация' });
 
-// Add a test endpoint to verify the server is running
-app.get('/test', (req, res) => {
-  res.json({ message: 'Server is running' });
-});
-
-const JWT_SECRET = 'your-secret-key'; // В продакшене использовать переменную окружения
-
-// Middleware для проверки аутентификации
-const authenticateToken = async (req, res, next) => {
-  console.log('Проверка аутентификации для:', req.path);
-  console.log('Все cookies:', req.cookies);
-  console.log('Headers:', req.headers);
-  console.log('Origin:', req.headers.origin);
-  
-  const token = req.cookies.token;
-  
-  if (!token) {
-    console.log('Токен отсутствует в cookies');
-    return res.status(401).json({ error: 'Требуется авторизация' });
-  }
-
-  try {
-    console.log('Проверка токена:', token);
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Токен успешно проверен:', decoded);
-    
-    // Проверяем, существует ли пользователь
-    if (!users.has(decoded.username)) {
-      console.log('Пользователь не найден:', decoded.username);
-      return res.status(401).json({ error: 'Пользователь не найден' });
+    try {
+        const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
+        const decoded = jwt.verify(token, secret);
+        const user = await db.getUserByUsername(decoded.username);
+        if (!user) {
+            return res.status(401).json({ error: 'Пользователь не найден' });
+        }
+        req.user = { id: user.id, username: user.username, isAdmin: user.role === 'admin' };
+        next();
+    } catch (error) {
+        console.error('Ошибка проверки токена:', error);
+        return res.status(403).json({ error: 'Недействительный токен' });
     }
-    
-    const userData = users.get(decoded.username);
-    req.user = {
-      username: decoded.username,
-      isAdmin: userData.isAdmin || false
-    };
-    next();
-  } catch (error) {
-    console.log('Ошибка проверки токена:', error.message);
-    return res.status(403).json({ error: 'Недействительный токен' });
-  }
-};
+}
 
 // Middleware для проверки прав администратора
-const isAdmin = (req, res, next) => {
-  if (!req.user || !users.get(req.user.username).isAdmin) {
-    return res.status(403).json({ error: 'Требуются права администратора' });
-  }
-  next();
-};
+function isAdmin(req, res, next) {
+    if (!req.user.isAdmin && req.user.username !== 'admin') {
+        console.log('Доступ запрещен для пользователя:', req.user.username);
+        return res.status(403).json({ error: 'Требуются права администратора' });
+    }
+    console.log('Доступ администратора разрешен для:', req.user.username);
+    next();
+}
 
 // Регистрация
 app.post('/register', async (req, res) => {
-    console.log('Получен запрос на регистрацию:', req.body);
+    console.log('Запрос на регистрацию получен:', req.body);
     const { username, password } = req.body;
     
     if (!username || !password) {
-        console.log('Отклонено: отсутствует имя пользователя или пароль');
-        return res.status(400).json({ error: 'Требуется имя пользователя и пароль' });
-    }
-
-    console.log('Проверка существующих пользователей...');
-    console.log('Текущие пользователи:', Array.from(users.keys()));
-
-    if (users.has(username)) {
-        console.log('Отклонено: пользователь уже существует');
-        return res.status(400).json({ error: 'Пользователь уже существует' });
+        console.log('Ошибка: отсутствует имя пользователя или пароль');
+        return res.status(400).json({ error: 'Требуются имя пользователя и пароль' });
     }
 
     try {
+        console.log('Проверка существующего пользователя...');
+        const existingUser = await db.getUserByUsername(username);
+        if (existingUser) {
+            console.log('Пользователь уже существует:', username);
+            return res.status(400).json({ error: 'Пользователь уже существует' });
+        }
+
         console.log('Хеширование пароля...');
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log('Создание нового пользователя...');
+        const userId = await db.createUser(username, hashedPassword);
         
-        console.log('Создание записи пользователя...');
-        const userData = {
-            password: hashedPassword,
-            createdAt: new Date().toISOString(),
-            lastLogin: null
-        };
+        console.log('Генерация JWT токена...');
+        const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
+        const token = jwt.sign({ username }, secret, { expiresIn: '24h' });
         
-        users.set(username, userData);
-        console.log('Пользователь добавлен в Map');
-        
-        // Save to file
-        saveData();
-        
-        console.log('Генерация токена...');
-        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
-        
-        console.log('Отправка ответа...');
+        console.log('Установка cookie...');
         res.cookie('token', token, { 
             httpOnly: false,
             secure: false,
@@ -197,187 +82,205 @@ app.post('/register', async (req, res) => {
             path: '/',
             domain: '127.0.0.1'
         });
+        console.log('Отправка успешного ответа...');
         res.json({ message: 'Регистрация успешна', username });
-        console.log('Регистрация завершена успешно');
     } catch (error) {
         console.error('Ошибка при регистрации:', error);
-        res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
 // Вход
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  console.log('Попытка входа пользователя:', username);
-  console.log('Текущие пользователи:', Array.from(users.keys()));
-  console.log('Входящие cookies:', req.cookies);
+    console.log('Запрос на вход получен:', req.body);
+    const { username, password } = req.body;
 
-  const user = users.get(username);
-  if (!user) {
-    console.log('Отклонено: пользователь не найден');
-    return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
-  }
+    try {
+        console.log('Поиск пользователя...');
+        const user = await db.getUserByUsername(username);
+        if (!user) {
+            console.log('Пользователь не найден:', username);
+            return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+        }
 
-  try {
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      console.log('Отклонено: неверный пароль');
-      return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+        console.log('Проверка пароля...');
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            console.log('Неверный пароль для пользователя:', username);
+            return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+        }
+
+        console.log('Обновление времени последнего входа...');
+        await db.updateUserLastLogin(user.id);
+
+        console.log('Генерация JWT токена...');
+        const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
+        const token = jwt.sign({ username }, secret, { expiresIn: '24h' });
+        
+        console.log('Установка cookie...');
+        res.cookie('token', token, { 
+            httpOnly: false,
+            secure: false,
+            maxAge: 24 * 60 * 60 * 1000,
+            sameSite: 'lax',
+            path: '/',
+            domain: '127.0.0.1'
+        });
+        
+        console.log('Отправка успешного ответа...');
+        res.json({ 
+            message: 'Вход выполнен успешно', 
+            username,
+            isAdmin: user.role === 'admin'
+        });
+    } catch (error) {
+        console.error('Ошибка входа:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
-
-    console.log('Вход успешен');
-    user.lastLogin = new Date().toISOString();
-    saveData();
-
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
-    console.log('Сгенерирован токен:', token);
-    
-    const cookieOptions = { 
-      httpOnly: false,
-      secure: false,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'lax',
-      path: '/',
-      domain: '127.0.0.1'
-    };
-    console.log('Настройки cookie:', cookieOptions);
-    
-    res.cookie('token', token, cookieOptions);
-    console.log('Cookie установлен');
-    
-    res.json({ 
-      message: 'Вход выполнен успешно', 
-      username,
-      isAdmin: user.isAdmin || false
-    });
-    console.log('Ответ отправлен');
-  } catch (error) {
-    console.error('Ошибка входа:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Выход
-app.post('/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/'
-  });
-  res.json({ message: 'Выход выполнен успешно' });
 });
 
 // Сохранение GeoJSON
-app.post('/save', authenticateToken, (req, res) => {
-  const { fileName, geojsonData } = req.body;
-  const { username } = req.user;
+app.post('/save', authenticateToken, async (req, res) => {
+    const { fileName, geojsonData } = req.body;
+    const { id: userId } = req.user;
 
-  console.log('Сохранение файла:', fileName, 'для пользователя:', username);
-
-  if (!fileName || !geojsonData) {
-    return res.status(400).json({ error: 'Имя файла и данные обязательны' });
-  }
-
-  try {
-    if (!mapData.has(username)) {
-      mapData.set(username, new Map());
+    if (!fileName || !geojsonData) {
+        return res.status(400).json({ error: 'Имя файла и данные обязательны' });
     }
-    const userMaps = mapData.get(username);
-    userMaps.set(fileName, {
-      data: geojsonData,
-      updatedAt: new Date().toISOString()
-    });
-    
-    // Save to file
-    saveData();
-    
-    res.json({ message: 'Сохранено успешно' });
-  } catch (error) {
-    console.error('Ошибка сохранения:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+
+    try {
+        await db.saveMapObject(
+            userId,
+            fileName,
+            geojsonData.type || 'FeatureCollection',
+            geojsonData.features || geojsonData,
+            {}
+        );
+        
+        res.json({ message: 'Сохранено успешно' });
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
 });
 
 // Загрузка GeoJSON
-app.get('/load/:fileName', authenticateToken, (req, res) => {
-  const { fileName } = req.params;
-  const { username } = req.user;
+app.get('/load/:fileName', authenticateToken, async (req, res) => {
+    const { fileName } = req.params;
+    const { id: userId } = req.user;
 
-  console.log('Загрузка файла:', fileName, 'для пользователя:', username);
+    try {
+        const mapObject = await db.getMapObjectByName(userId, fileName);
+        if (!mapObject) {
+            return res.status(404).json({ error: 'Файл не найден' });
+        }
 
-  try {
-    const userMaps = mapData.get(username);
-    if (!userMaps || !userMaps.has(fileName)) {
-      return res.status(404).json({ error: 'Файл не найден' });
+        const geojsonData = {
+            type: mapObject.type,
+            features: mapObject.coordinates
+        };
+
+        res.json(geojsonData);
+    } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
-    res.json(userMaps.get(fileName).data);
-  } catch (error) {
-    console.error('Ошибка загрузки:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
 });
 
 // Список файлов
-app.get('/files', authenticateToken, (req, res) => {
-  const { username } = req.user;
-  console.log('Запрос списка файлов для пользователя:', username);
-  
-  try {
-    const userMaps = mapData.get(username);
-    const files = userMaps ? Array.from(userMaps.keys()) : [];
-    console.log('Найдены файлы:', files);
-    res.json(files);
-  } catch (error) {
-    console.error('Ошибка получения списка файлов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
+app.get('/files', authenticateToken, async (req, res) => {
+    const { id: userId } = req.user;
+    
+    try {
+        const mapObjects = await db.getMapObjectsByUser(userId);
+        const files = mapObjects.map(obj => obj.name);
+        res.json(files);
+    } catch (error) {
+        console.error('Ошибка получения списка файлов:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
 });
 
 // Получение списка всех файлов (для админа)
-app.get('/admin/files', authenticateToken, isAdmin, (req, res) => {
-  try {
-    const allFiles = [];
-    for (const [username, userMaps] of mapData.entries()) {
-      for (const [fileName, fileData] of userMaps.entries()) {
-        allFiles.push({
-          username,
-          fileName,
-          createdAt: fileData.createdAt
-        });
-      }
+app.get('/admin/files', authenticateToken, isAdmin, async (req, res) => {
+    console.log('Запрос списка всех файлов от администратора:', req.user.username);
+    try {
+        const allFiles = await db.getAllMapObjects();
+        const files = allFiles.map(file => ({
+            username: file.username,
+            fileName: file.name,
+            createdAt: file.created_at
+        }));
+        console.log('Список файлов успешно отправлен администратору');
+        res.json(files);
+    } catch (error) {
+        console.error('Ошибка получения списка файлов для админа:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
-    res.json(allFiles);
-  } catch (error) {
-    console.error('Ошибка получения списка файлов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
 });
 
 // Загрузка файла любого пользователя (для админа)
-app.get('/admin/load/:username/:fileName', authenticateToken, isAdmin, (req, res) => {
-  const { username, fileName } = req.params;
+app.get('/admin/load/:username/:fileName', authenticateToken, isAdmin, async (req, res) => {
+    const { username, fileName } = req.params;
 
-  try {
-    const userMaps = mapData.get(username);
-    if (!userMaps || !userMaps.has(fileName)) {
-      return res.status(404).json({ error: 'Файл не найден' });
+    try {
+        const user = await db.getUserByUsername(username);
+        if (!user) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        const mapObject = await db.getMapObjectByName(user.id, fileName);
+        if (!mapObject) {
+            return res.status(404).json({ error: 'Файл не найден' });
+        }
+
+        const geojsonData = {
+            type: mapObject.type,
+            features: mapObject.coordinates
+        };
+
+        res.json(geojsonData);
+    } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
-    res.json(userMaps.get(fileName).data);
-  } catch (error) {
-    console.error('Ошибка загрузки:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
 });
 
 // Получение информации о текущем пользователе
 app.get('/user/info', authenticateToken, (req, res) => {
-  console.log('Запрос информации о пользователе:', req.user);
-  res.json({
-    username: req.user.username,
-    isAdmin: req.user.isAdmin
-  });
+    res.json({
+        username: req.user.username,
+        isAdmin: req.user.isAdmin
+    });
 });
 
-app.listen(port, () => {
-  console.log(`Сервер запущен на http://localhost:${port}`);
+// Выход из системы
+app.post('/logout', (req, res) => {
+    console.log('Запрос на выход из системы получен');
+    res.clearCookie('token', {
+        httpOnly: false,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        domain: '127.0.0.1'
+    });
+    res.json({ message: 'Выход выполнен успешно' });
+    console.log('Cookie токен очищен, выход выполнен');
+});
+
+app.listen(port, async () => {
+    console.log(`Сервер запущен на порту ${port}`);
+    
+    // Проверка подключения к базе данных
+    try {
+        const { runQuery } = require('./config/database');
+        const result = await runQuery('SELECT 1 as test');
+        console.log('Успешное подключение к базе данных SQLite!');
+    } catch (error) {
+        console.error('Ошибка подключения к базе данных при старте сервера:', error);
+        console.error('Код ошибки:', error.code);
+        if (error.originalError) {
+            console.error('Оригинальная ошибка:', error.originalError);
+        }
+    }
 });

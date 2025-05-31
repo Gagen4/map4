@@ -3,18 +3,14 @@ version: '3.8'
 services:
   app:
     build: .
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./map4.db:/app/map4.db
     environment:
       - NODE_ENV=production
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - SESSION_SECRET=${SESSION_SECRET}
-    volumes:
-      - ./data:/usr/src/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/test"]

@@ -6,6 +6,7 @@ import { state } from './mapInit.js';
  */
 async function loadAdminFileList() {
     try {
+        console.log('Запрос списка всех файлов для администратора...');
         const response = await fetch('http://127.0.0.1:3000/admin/files', {
             credentials: 'include',
             headers: {
@@ -14,22 +15,28 @@ async function loadAdminFileList() {
         });
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка получения списка файлов для админа:', response.status, errorText);
             throw new Error('Ошибка получения списка файлов');
         }
 
         const files = await response.json();
+        console.log('Получен список файлов для админа:', files);
         const select = document.getElementById('admin-file-list');
-        select.innerHTML = '<option value="">Select user file...</option>';
-        
-        files.forEach(file => {
-            const option = document.createElement('option');
-            option.value = `${file.username}/${file.fileName}`;
-            option.textContent = `${file.username} - ${file.fileName}`;
-            select.appendChild(option);
-        });
+        if (select) {
+            select.innerHTML = '<option value="">Select user file...</option>';
+            files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = `${file.username}/${file.fileName}`;
+                option.textContent = `${file.username} - ${file.fileName}`;
+                select.appendChild(option);
+            });
+        } else {
+            console.error('Элемент admin-file-list не найден в DOM');
+        }
     } catch (error) {
-        console.error('Ошибка загрузки списка файлов:', error);
-        document.getElementById('error-message').textContent = error.message;
+        console.error('Ошибка загрузки списка файлов для админа:', error);
+        // Не выводим ошибку на UI, чтобы не отвлекать администратора
     }
 }
 
