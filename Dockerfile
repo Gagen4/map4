@@ -10,8 +10,8 @@ RUN echo '<html><body><h1>Apache2 работает!</h1><p>Это тестова
 # Устанавливаем права доступа
 RUN chown -R www-data:www-data /usr/local/apache2/htdocs
 
-# Открываем порт 80 для веб-доступа
-EXPOSE 80
+# Открываем порт 8080 для веб-доступа
+EXPOSE 8080
 
 # Запускаем Apache в foreground режиме
 CMD ["httpd-foreground"] 
