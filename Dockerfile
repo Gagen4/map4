@@ -1,3 +1,4 @@
+# This Dockerfile sets up a Node.js application with PM2 for process management.    
 # Use Node.js 18 as the base image
 FROM node:18-slim
 
