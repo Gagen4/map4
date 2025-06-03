@@ -1,17 +1,31 @@
-# Используем официальный образ Apache2
-FROM httpd:2.4
+# This Dockerfile sets up a Node.js application with PM2 for process management.    
+# Use Node.js 18 as the base image
+FROM node:18-alpine
 
-# Создаем директории для конфигурации и контента, если их нет
-RUN mkdir -p /usr/local/apache2/conf /usr/local/apache2/htdocs
+# Set working directory
+WORKDIR /app
 
-# Создаем тестовую страницу
-RUN echo '<html><body><h1>Apache2 работает!</h1><p>Это тестовая страница, созданная по умолчанию.</p></body></html>' > /usr/local/apache2/htdocs/index.html
+# Install PM2 globally
+RUN npm install -g pm2
 
-# Устанавливаем права доступа
-RUN chown -R www-data:www-data /usr/local/apache2/htdocs
+# Copy package files
+COPY package*.json ./
 
-# Открываем порт 3000 для веб-доступа
+# Install dependencies
+RUN npm install
+
+# Copy application files
+COPY . .
+
+# Create necessary directories and set permissions
+RUN mkdir -p /usr/src/app/data && \
+    chown -R node:node /usr/src/app
+
+# Switch to non-root user
+USER node
+
+# Expose port
 EXPOSE 3000
 
-# Запускаем Apache в foreground режиме
-CMD ["httpd-foreground"] 
+# Start the application with PM2
+CMD ["node", "server.js"] 

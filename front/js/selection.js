@@ -80,9 +80,8 @@ function highlightLayer(layer) {
   }
 }
 
-/**
- * Сбрасывает состояние выбора.
- */
+//Сбрасывает состояние выбора.
+ 
 function resetSelection() {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');

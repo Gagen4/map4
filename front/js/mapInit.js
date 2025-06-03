@@ -28,9 +28,8 @@ const state = {
   tempPoints: [],
 };
 
-/**
- * Настраивает иконки маркеров Leaflet.
- */
+//Настраивает иконки   маркеров Leaflet.
+ 
 function configureMarkerIcons() {
   // Создаем HTML-маркер с использованием эмодзи
   const DefaultIcon = L.divIcon({
@@ -68,25 +67,20 @@ function configureMarkerIcons() {
  */
 async function initMap(retries = 3, delay = 500) {
   let attempt = 1;
-
   while (attempt <= retries) {
     try {
       console.log(`Попытка инициализации карты (Попытка ${attempt}/${retries})`);
-
       // Проверка доступности Leaflet
       if (typeof L === 'undefined') {
         throw new Error('Leaflet не загружен. Проверьте подключение скрипта Leaflet.');
       }
-
       // Настройка иконок маркеров
       configureMarkerIcons();
-
       // Проверка наличия контейнера карты
       const mapContainer = document.getElementById('map');
       if (!mapContainer) {
         throw new Error('Контейнер карты (#map) не найден в DOM');
       }
-
       // Проверка размеров контейнера
       const rect = mapContainer.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {
@@ -94,24 +88,20 @@ async function initMap(retries = 3, delay = 500) {
         mapContainer.style.width = '100vw';
         mapContainer.style.height = '100vh';
       }
-
       // Инициализация карты
       state.map = L.map('map', {
         center: [51.505, -0.09],
         zoom: 13,
         zoomControl: true,
       });
-
       // Добавление слоя тайлов OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(state.map);
-
       // Инициализация слоя нарисованных объектов
       state.drawnItems = new L.FeatureGroup();
       state.map.addLayer(state.drawnItems);
-
       // Принудительное обновление карты
       console.log('Карта инициализирована, выполняется принудительное обновление...');
       setTimeout(() => {
@@ -120,7 +110,6 @@ async function initMap(retries = 3, delay = 500) {
           console.log('Обновление карты выполнено');
         }
       }, 100);
-
       // Успех
       console.log('Карта успешно инициализирована');
       return;

@@ -11,9 +11,8 @@ import { state } from './mapInit.js';
 import { initCoordinates, updateFileList, initUI } from './ui.js';
 import { initAdmin } from './admin.js';
 
-/**
- * Инициализирует карту и связанные компоненты
- */
+//Инициализирует карту и связанные компоненты
+ 
 async function initMapComponents() {
   try {
     console.log('Инициализация карты...');
@@ -44,9 +43,8 @@ async function initMapComponents() {
   }
 }
 
-/**
- * Инициализирует приложение.
- */
+//Инициализирует приложение.
+ 
 async function init() {
   try {
     console.log('Инициализация приложения...');

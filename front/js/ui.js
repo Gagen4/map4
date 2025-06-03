@@ -39,9 +39,8 @@ function showHelp(message) {
   if (error) error.textContent = message.startsWith('Ошибка') ? message : '';
 }
 
-/**
- * Обновляет отображение координат
- */
+//Обновляет отображение координат
+ 
 function updateCoordinates(lat, lng) {
     const latElement = document.getElementById('lat');
     const lngElement = document.getElementById('lng');
@@ -54,9 +53,8 @@ function updateCoordinates(lat, lng) {
     }
 }
 
-/**
- * Инициализирует отображение координат с дебаунсингом.
- */
+//Инициализирует отображение координат с дебаунсингом.
+ 
 function initCoordinates() {
     if (!state.map) {
         console.error('Карта не инициализирована для обновления координат');
@@ -73,9 +71,8 @@ function initCoordinates() {
     });
 }
 
-/**
- * Обновляет список файлов
- */
+//Обновляет список файлов
+ 
 async function updateFileList() {
     if (!isAuthenticated()) {
         console.log('Пользователь не авторизован');
@@ -185,9 +182,8 @@ async function updateFileList() {
     }
 }
 
-/**
- * Сохраняет текущее состояние карты
- */
+//Сохраняет текущее состояние карты
+ 
 async function saveMap() {
     if (!isAuthenticated()) {
         document.getElementById('error-message').textContent = 'Необходимо войти в систему';
@@ -231,9 +227,8 @@ async function saveMap() {
     }
 }
 
-/**
- * Загружает сохраненное состояние карты
- */
+//Загружает сохраненное состояние карты
+ 
 async function loadMap() {
     if (!isAuthenticated()) {
         document.getElementById('error-message').textContent = 'Необходимо войти в систему';
@@ -271,9 +266,8 @@ async function loadMap() {
     }
 }
 
-/**
- * Инициализация обработчиков событий для UI
- */
+//Инициализация обработчиков событий для UI
+ 
 function initUI() {
     document.getElementById('save-map').addEventListener('click', saveMap);
     document.getElementById('load-map').addEventListener('click', loadMap);

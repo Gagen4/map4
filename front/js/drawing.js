@@ -11,9 +11,8 @@ let saveTimeout = null;
 let lastSaveTime = 0;
 const MIN_SAVE_INTERVAL = 2000; // Минимальный интервал между сохранениями (2 секунды)
 
-/**
- * Настраивает обработчики кликов по карте для рисования.
- */
+//Настраивает обработчики кликов по карте для рисования.
+ 
 function setupMapHandlers() {
   if (!state.map) return;
   
@@ -39,10 +38,8 @@ function setupMapHandlers() {
   });
 }
 
-/**
- * Сохраняет текущее состояние карты на сервер с дебаунсингом.
- * @param {boolean} [forceSave=false] - Принудительное сохранение, игнорируя дебаунсинг
- */
+//Сохраняет текущее состояние карты на сервер с дебаунсингом.
+ 
 async function saveCurrentState(forceSave = false) {
   try {
     const now = Date.now();
@@ -74,10 +71,8 @@ async function saveCurrentState(forceSave = false) {
   }
 }
 
-/**
- * Добавляет маркер на карту.
- * @param {L.LatLng} latlng - Координаты маркера.
- */
+//Добавляет маркер на карту.
+ 
 function addMarker(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -106,10 +101,8 @@ function addMarker(latlng) {
   }
 }
 
-/**
- * Добавляет точку к временной линии.
- * @param {L.LatLng} latlng - Координаты точки.
- */
+//Добавляет точку к временной линии.
+ 
 function addLinePoint(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -131,10 +124,8 @@ function addLinePoint(latlng) {
   }
 }
 
-/**
- * Добавляет точку к временному полигону.
- * @param {L.LatLng} latlng - Координаты точки.
- */
+//Добавляет точку к временному полигону.
+ 
 function addPolygonPoint(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -156,10 +147,8 @@ function addPolygonPoint(latlng) {
   }
 }
 
-/**
- * Завершает рисование линии или полигона и добавляет их в drawnItems.
- * @param {MapState} state - Глобальное состояние.
- */
+  //Завершает рисование линии или полигона и добавляет их в drawnItems.
+ 
 function finishDrawing(state) {
   if (state.tempPoints.length === 0) return;
 

@@ -5,8 +5,8 @@ services:
     build: .
     ports:
       - "3000:3000"
-    # volumes:
-    #   - ./map4.db:/app/map4.db
+    volumes:
+      - ./map4.db:/app/map4.db
     environment:
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET}
@@ -23,7 +23,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "3001:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./front:/usr/share/nginx/html/front:ro

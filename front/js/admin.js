@@ -1,9 +1,8 @@
 import { importFromGeoJSON } from './drawing.js';
 import { state } from './mapInit.js';
 
-/**
- * Загружает список всех файлов для админа
- */
+
+//Загружает список всех файлов для админа
 async function loadAdminFileList() {
     try {
         console.log('Запрос списка всех файлов для администратора...');
@@ -40,9 +39,7 @@ async function loadAdminFileList() {
     }
 }
 
-/**
- * Загружает выбранный файл
- */
+//Загружает выбранный файл
 async function loadSelectedFile() {
     const select = document.getElementById('admin-file-list');
     const value = select.value;
@@ -76,9 +73,7 @@ async function loadSelectedFile() {
     }
 }
 
-/**
- * Инициализация админских функций
- */
+//Инициализация админских функций
 function initAdmin() {
     document.addEventListener('authSuccess', () => {
         // Обновляем список файлов при успешной авторизации
