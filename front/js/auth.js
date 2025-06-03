@@ -1,12 +1,20 @@
-//Модуль аутентификации
+/**
+ * Модуль аутентификации
+ */
+
 let currentUser = null;
- //Инициализация формы аутентификации
+
+/**
+ * Инициализация формы аутентификации
+ */
 function initAuth() {
     setupAuthListeners();
     checkAuthStatus();
 }
 
-//Настройка обработчиков событий для формы аутентификаци
+/**
+ * Настройка обработчиков событий для формы аутентификации
+ */
 function setupAuthListeners() {
     const authSubmit = document.getElementById('auth-submit');
     const switchAuth = document.getElementById('switch-auth');
@@ -44,20 +52,26 @@ function setupAuthListeners() {
     logoutBtn.addEventListener('click', logout);
 }
 
-//Показать сообщение об ошибке
+/**
+ * Показать сообщение об ошибке
+ */
 function showError(message) {
     const errorDiv = document.querySelector('.auth-form .error');
     errorDiv.textContent = message;
     errorDiv.style.display = 'block';
 }
 
-//Скрыть сообщение об ошибке
+/**
+ * Скрыть сообщение об ошибке
+ */
 function hideError() {
     const errorDiv = document.querySelector('.auth-form .error');
     errorDiv.style.display = 'none';
 }
 
-//Регистрация нового пользователя
+/**
+ * Регистрация нового пользователя
+ */
 async function register(username, password) {
     try {
         const response = await fetch('http://127.0.0.1:3000/register', {
@@ -78,7 +92,7 @@ async function register(username, password) {
             throw new Error(data.error || 'Ошибка регистрации');
         }
 
-        // проверка аунтификации после регистрации
+        // Verify authentication after registration
         const verifyResponse = await fetch('http://127.0.0.1:3000/files', {
             credentials: 'include',
             headers: {
@@ -99,7 +113,9 @@ async function register(username, password) {
     }
 }
 
-//Вход пользователя
+/**
+ * Вход пользователя
+ */
 async function login(username, password) {
     try {
         const response = await fetch('http://127.0.0.1:3000/login', {
@@ -153,7 +169,9 @@ async function login(username, password) {
     }
 }
 
-//Выход пользователя
+/**
+ * Выход пользователя
+ */
 async function logout() {
     try {
         await fetch('http://127.0.0.1:3000/logout', {
@@ -169,7 +187,9 @@ async function logout() {
     window.location.reload();
 }
 
-//Проверка статуса аутентификации при загрузке
+/**
+ * Проверка статуса аутентификации при загрузке
+ */
 async function checkAuthStatus() {
     try {
         console.log('Проверка статуса аутентификации...');
@@ -210,7 +230,9 @@ async function checkAuthStatus() {
     }
 }
 
-//Декодирование JWT токена
+/**
+ * Декодирование JWT токена
+ */
 function decodeToken(token) {
     try {
         const base64Url = token.split('.')[1];
@@ -226,7 +248,9 @@ function decodeToken(token) {
     }
 }
 
-//Обновление UI в зависимости от состояния аутентификации
+/**
+ * Обновление UI в зависимости от состояния аутентификации
+ */
 function updateAuthUI() {
     console.log('Обновление UI, currentUser:', currentUser);
     const authContainer = document.getElementById('auth-container');
@@ -259,18 +283,24 @@ function updateAuthUI() {
     }
 }
 
-//Отправка события успешной аутентификации
+/**
+ * Отправка события успешной аутентификации
+ */
 function dispatchAuthSuccess() {
     const event = new Event('authSuccess');
     document.dispatchEvent(event);
 }
 
-//Проверка аутентификации пользователя
+/**
+ * Проверка аутентификации пользователя
+ */
 function isAuthenticated() {
     return currentUser !== null;
 }
 
-//Получение текущего пользователя
+/**
+ * Получение текущего пользователя
+ */
 function getCurrentUser() {
     return currentUser;
 }

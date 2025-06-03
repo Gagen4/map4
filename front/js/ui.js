@@ -39,8 +39,9 @@ function showHelp(message) {
   if (error) error.textContent = message.startsWith('Ошибка') ? message : '';
 }
 
-//Обновляет отображение координат
- 
+/**
+ * Обновляет отображение координат
+ */
 function updateCoordinates(lat, lng) {
     const latElement = document.getElementById('lat');
     const lngElement = document.getElementById('lng');
@@ -53,8 +54,9 @@ function updateCoordinates(lat, lng) {
     }
 }
 
-//Инициализирует отображение координат с дебаунсингом.
- 
+/**
+ * Инициализирует отображение координат с дебаунсингом.
+ */
 function initCoordinates() {
     if (!state.map) {
         console.error('Карта не инициализирована для обновления координат');
@@ -71,8 +73,21 @@ function initCoordinates() {
     });
 }
 
-//Обновляет список файлов
- 
+/**
+ * Очищает все объекты на карте
+ */
+function clearAllFeatures() {
+    if (state.drawnItems) {
+        state.drawnItems.clearLayers();
+        showHelp('Все объекты очищены');
+    } else {
+        showHelp('Ошибка: Слой для объектов не инициализирован');
+    }
+}
+
+/**
+ * Обновляет список файлов
+ */
 async function updateFileList() {
     if (!isAuthenticated()) {
         console.log('Пользователь не авторизован');
@@ -182,8 +197,9 @@ async function updateFileList() {
     }
 }
 
-//Сохраняет текущее состояние карты
- 
+/**
+ * Сохраняет текущее состояние карты
+ */
 async function saveMap() {
     if (!isAuthenticated()) {
         document.getElementById('error-message').textContent = 'Необходимо войти в систему';
@@ -227,8 +243,9 @@ async function saveMap() {
     }
 }
 
-//Загружает сохраненное состояние карты
- 
+/**
+ * Загружает сохраненное состояние карты
+ */
 async function loadMap() {
     if (!isAuthenticated()) {
         document.getElementById('error-message').textContent = 'Необходимо войти в систему';
@@ -266,11 +283,89 @@ async function loadMap() {
     }
 }
 
-//Инициализация обработчиков событий для UI
- 
+/**
+ * Инициализация обработчиков событий для UI
+ */
 function initUI() {
+    console.log('Инициализация UI...');
+    initCoordinates();
+    updateFileList();
+    
+    document.getElementById('add-marker').addEventListener('click', () => {
+        state.currentTool = 'marker';
+        updateToolButtons(state);
+        showHelp('Кликните на карте, чтобы добавить маркер');
+    });
+    document.getElementById('add-line').addEventListener('click', () => {
+        state.currentTool = 'line';
+        updateToolButtons(state);
+        showHelp('Кликните на карте, чтобы добавить точки линии. Нажмите Esc для завершения.');
+    });
+    document.getElementById('add-polygon').addEventListener('click', () => {
+        state.currentTool = 'polygon';
+        updateToolButtons(state);
+        showHelp('Кликните на карте, чтобы добавить точки полигона. Нажмите Esc для завершения.');
+    });
+    document.getElementById('delete-object').addEventListener('click', () => {
+        state.currentTool = 'delete';
+        updateToolButtons(state);
+        showHelp('Кликните на объект, чтобы удалить его');
+    });
+    document.getElementById('clear-all').addEventListener('click', clearAllFeatures);
+    
     document.getElementById('save-map').addEventListener('click', saveMap);
     document.getElementById('load-map').addEventListener('click', loadMap);
+    
+    initNameEditor();
+}
+
+/**
+ * Инициализирует обработчик изменения названия объекта
+ */
+function initNameEditor() {
+    const saveNameBtn = document.getElementById('save-name');
+    const nameInput = document.getElementById('object-name');
+    
+    if (saveNameBtn && nameInput) {
+        saveNameBtn.addEventListener('click', () => {
+            if (state.selectedFeature && state.selectedFeature.layer) {
+                const newName = nameInput.value.trim();
+                if (newName) {
+                    // Обновляем свойства объекта
+                    if (!state.selectedFeature.layer.feature) {
+                        state.selectedFeature.layer.feature = { type: 'Feature', properties: {} };
+                    }
+                    state.selectedFeature.layer.feature.properties.name = newName;
+                    state.selectedFeature.properties = state.selectedFeature.layer.feature.properties;
+                    // Обновляем всплывающее окно
+                    state.selectedFeature.layer.bindPopup(newName);
+                    state.selectedFeature.layer.openPopup();
+                    console.log('Название обновлено:', newName);
+                    nameInput.value = '';
+                    showHelp('Название объекта обновлено');
+                } else {
+                    showHelp('Ошибка: Введите название');
+                }
+            } else {
+                showHelp('Ошибка: Выберите объект для изменения названия');
+                console.log('Объект не выбран');
+            }
+        });
+        
+        // При выборе объекта показываем текущее название, если оно есть
+        document.addEventListener('featureselect', (e) => {
+            console.log('Событие featureselect получено:', e.detail.feature);
+            if (e.detail.feature && e.detail.feature.properties && e.detail.feature.properties.name) {
+                nameInput.value = e.detail.feature.properties.name;
+                console.log('Поле ввода обновлено с названием:', e.detail.feature.properties.name);
+            } else {
+                nameInput.value = '';
+                console.log('Поле ввода очищено, название отсутствует');
+            }
+        });
+    } else {
+        console.error('Элементы для редактирования названия не найдены');
+    }
 }
 
 export { 
@@ -280,5 +375,6 @@ export {
     updateFileList, 
     saveMap, 
     loadMap,
-    initUI
+    initUI,
+    initNameEditor
 };

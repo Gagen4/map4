@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Map Application</title>
-    <link rel="stylesheet" href="http://127.0.0.1:5500/leaflet/leaflet.css">
-    <link rel="stylesheet" href="http://127.0.0.1:5500/css/styles.css">
+    <base href="/front/">
+    <link rel="stylesheet" href="leaflet/leaflet.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div id="auth-container" class="auth-container">
@@ -35,6 +36,10 @@
                 <button id="delete-object" title="Delete">D</button>
                 <button id="clear-all" title="Clear">C</button>
             </div>
+            <div class="name-editor" style="margin-top: 10px; display: block !important; visibility: visible !important;">
+                <input type="text" id="object-name" placeholder="Название объекта..." style="width: 100%; padding: 8px; margin-bottom: 5px; display: block !important; visibility: visible !important;">
+                <button id="save-name" style="width: 100%; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; display: block !important; visibility: visible !important;">Сохранить название</button>
+            </div>
             <div class="save-load">
                 <input type="text" id="save-file-name" placeholder="File name...">
                 <button id="save-map">Save</button>
@@ -63,17 +68,8 @@
             <button id="logout-btn">Выйти</button>
         </div>
     </div>
-    <script src="http://127.0.0.1:5500/leaflet/leaflet.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/api.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/auth.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/search.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/selection.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/admin.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/drawing.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/mapInit.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/main.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/ui.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/tools.js"></script>
-    <script type="module" src="http://127.0.0.1:5500/js/app.js"></script>
+    <script src="leaflet/leaflet.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

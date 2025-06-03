@@ -5,10 +5,11 @@
 import { state } from './mapInit.js';
 import { finishDrawing, resetDrawing, exportToGeoJSON, importFromGeoJSON } from './drawing.js';
 import { updateToolButtons, showHelp, updateFileList } from './ui.js';
-import { isAuthenticated } from '../../auth.js';
+import { isAuthenticated } from './auth.js';
 
-//Инициализирует обработчики событий для кнопок инструментов.
- 
+/**
+ * Инициализирует обработчики событий для кнопок инструментов.
+ */
 function initTools() {
   // Кэширование элементов кнопок
   const buttons = {

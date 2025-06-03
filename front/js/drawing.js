@@ -11,8 +11,9 @@ let saveTimeout = null;
 let lastSaveTime = 0;
 const MIN_SAVE_INTERVAL = 2000; // Минимальный интервал между сохранениями (2 секунды)
 
-//Настраивает обработчики кликов по карте для рисования.
- 
+/**
+ * Настраивает обработчики кликов по карте для рисования.
+ */
 function setupMapHandlers() {
   if (!state.map) return;
   
@@ -38,8 +39,10 @@ function setupMapHandlers() {
   });
 }
 
-//Сохраняет текущее состояние карты на сервер с дебаунсингом.
- 
+/**
+ * Сохраняет текущее состояние карты на сервер с дебаунсингом.
+ * @param {boolean} [forceSave=false] - Принудительное сохранение, игнорируя дебаунсинг
+ */
 async function saveCurrentState(forceSave = false) {
   try {
     const now = Date.now();
@@ -71,8 +74,10 @@ async function saveCurrentState(forceSave = false) {
   }
 }
 
-//Добавляет маркер на карту.
- 
+/**
+ * Добавляет маркер на карту.
+ * @param {L.LatLng} latlng - Координаты маркера.
+ */
 function addMarker(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -84,7 +89,16 @@ function addMarker(latlng) {
       draggable: true // Делаем маркер перетаскиваемым
     }).addTo(state.drawnItems);
     
-    marker.bindPopup('Маркер').openPopup();
+    marker.feature = { type: 'Feature', properties: { name: 'Маркер' } };
+    console.log('Маркер добавлен, открываем всплывающее окно');
+    const popupContent = `
+      <div>
+        <b>Название:</b> <input type="text" id="popup-name-input" value="Маркер" style="width: 150px; padding: 5px; margin-bottom: 5px;"><br>
+        <button id="popup-save-name" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Сохранить</button>
+      </div>
+    `;
+    marker.bindPopup(popupContent).openPopup();
+    console.log('Всплывающее окно привязано и открыто для маркера');
     
     // Добавляем обработчики событий для маркера
     marker.on('click', (e) => {
@@ -96,13 +110,38 @@ function addMarker(latlng) {
     marker.on('dragend', (e) => {
       e.originalEvent?.preventDefault();
     });
+    
+    // Добавляем обработчик для кнопки сохранения
+    setTimeout(() => {
+      const saveButton = document.getElementById('popup-save-name');
+      if (saveButton) {
+        saveButton.addEventListener('click', () => {
+          const nameInput = document.getElementById('popup-name-input');
+          if (nameInput) {
+            const newName = nameInput.value.trim();
+            if (newName) {
+              marker.feature.properties.name = newName;
+              console.log('Название маркера обновлено:', newName);
+              marker.closePopup();
+            } else {
+              console.log('Название не введено');
+            }
+          }
+        });
+        console.log('Обработчик для кнопки сохранения добавлен');
+      } else {
+        console.error('Кнопка сохранения не найдена в всплывающем окне');
+      }
+    }, 100);
   } catch (error) {
     console.error('Ошибка при добавлении маркера:', error);
   }
 }
 
-//Добавляет точку к временной линии.
- 
+/**
+ * Добавляет точку к временной линии.
+ * @param {L.LatLng} latlng - Координаты точки.
+ */
 function addLinePoint(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -124,8 +163,10 @@ function addLinePoint(latlng) {
   }
 }
 
-//Добавляет точку к временному полигону.
- 
+/**
+ * Добавляет точку к временному полигону.
+ * @param {L.LatLng} latlng - Координаты точки.
+ */
 function addPolygonPoint(latlng) {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -147,8 +188,10 @@ function addPolygonPoint(latlng) {
   }
 }
 
-  //Завершает рисование линии или полигона и добавляет их в drawnItems.
- 
+/**
+ * Завершает рисование линии или полигона и добавляет их в drawnItems.
+ * @param {MapState} state - Глобальное состояние.
+ */
 function finishDrawing(state) {
   if (state.tempPoints.length === 0) return;
 
@@ -159,12 +202,104 @@ function finishDrawing(state) {
 
   if (state.currentTool === 'line' && state.tempPoints.length >= 2) {
     const line = L.polyline(state.tempPoints, { color: 'red' }).addTo(state.drawnItems);
-    line.bindPopup('Линия');
+    line.feature = { type: 'Feature', properties: { name: 'Линия' } };
+    const length = calculateLineLength(line.getLatLngs());
+    line.feature.properties.length = length;
+    const popupContent = `
+      <div>
+        <b>Название:</b> <input type="text" id="popup-name-input" value="Линия" style="width: 150px; padding: 5px; margin-bottom: 5px;"><br>
+        <b>Длина:</b> <span id="line-length">${length.toFixed(2)} м</span><br>
+        <select id="unit-select" style="margin-top: 5px;">
+          <option value="meters">Метры</option>
+          <option value="kilometers">Километры</option>
+        </select>
+        <button id="popup-save-name" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;">Сохранить</button>
+      </div>
+    `;
+    line.bindPopup(popupContent).openPopup();
     line.on('click', () => selectObject(line));
+    setTimeout(() => {
+      const saveButton = document.getElementById('popup-save-name');
+      const unitSelect = document.getElementById('unit-select');
+      if (saveButton) {
+        saveButton.addEventListener('click', () => {
+          const nameInput = document.getElementById('popup-name-input');
+          if (nameInput) {
+            const newName = nameInput.value.trim();
+            if (newName) {
+              line.feature.properties.name = newName;
+              console.log('Название линии обновлено:', newName);
+              line.closePopup();
+            } else {
+              console.log('Название не введено');
+            }
+          }
+        });
+      }
+      if (unitSelect) {
+        unitSelect.addEventListener('change', () => {
+          const unit = unitSelect.value;
+          const lengthSpan = document.getElementById('line-length');
+          if (lengthSpan) {
+            if (unit === 'meters') {
+              lengthSpan.textContent = `${length.toFixed(2)} м`;
+            } else {
+              lengthSpan.textContent = `${(length / 1000).toFixed(2)} км`;
+            }
+          }
+        });
+      }
+    }, 100);
   } else if (state.currentTool === 'polygon' && state.tempPoints.length >= 3) {
     const polygon = L.polygon([state.tempPoints], { color: 'green' }).addTo(state.drawnItems);
-    polygon.bindPopup('Полигон');
+    polygon.feature = { type: 'Feature', properties: { name: 'Полигон' } };
+    const area = calculatePolygonArea(polygon.getLatLngs()[0]);
+    polygon.feature.properties.area = area;
+    const popupContent = `
+      <div>
+        <b>Название:</b> <input type="text" id="popup-name-input" value="Полигон" style="width: 150px; padding: 5px; margin-bottom: 5px;"><br>
+        <b>Площадь:</b> <span id="polygon-area">${area.toFixed(2)} м²</span><br>
+        <select id="unit-select" style="margin-top: 5px;">
+          <option value="meters">Метры</option>
+          <option value="kilometers">Километры</option>
+        </select>
+        <button id="popup-save-name" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;">Сохранить</button>
+      </div>
+    `;
+    polygon.bindPopup(popupContent).openPopup();
     polygon.on('click', () => selectObject(polygon));
+    setTimeout(() => {
+      const saveButton = document.getElementById('popup-save-name');
+      const unitSelect = document.getElementById('unit-select');
+      if (saveButton) {
+        saveButton.addEventListener('click', () => {
+          const nameInput = document.getElementById('popup-name-input');
+          if (nameInput) {
+            const newName = nameInput.value.trim();
+            if (newName) {
+              polygon.feature.properties.name = newName;
+              console.log('Название полигона обновлено:', newName);
+              polygon.closePopup();
+            } else {
+              console.log('Название не введено');
+            }
+          }
+        });
+      }
+      if (unitSelect) {
+        unitSelect.addEventListener('change', () => {
+          const unit = unitSelect.value;
+          const areaSpan = document.getElementById('polygon-area');
+          if (areaSpan) {
+            if (unit === 'meters') {
+              areaSpan.textContent = `${area.toFixed(2)} м²`;
+            } else {
+              areaSpan.textContent = `${(area / 1000000).toFixed(2)} км²`;
+            }
+          }
+        });
+      }
+    }, 100);
   }
 
   if (state.tempLayer) {
@@ -213,10 +348,9 @@ function exportToGeoJSON() {
           type: 'Point',
           coordinates: [layer.getLatLng().lng, layer.getLatLng().lat],
         },
-        properties: {
-          name: layer.getPopup()?.getContent() || 'Маркер',
-        },
+        properties: layer.feature ? layer.feature.properties : { name: 'Маркер' },
       });
+      console.log('Маркер добавлен в GeoJSON для сохранения');
     } else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
       geojson.features.push({
         type: 'Feature',
@@ -224,10 +358,9 @@ function exportToGeoJSON() {
           type: 'LineString',
           coordinates: layer.getLatLngs().map((latlng) => [latlng.lng, latlng.lat]),
         },
-        properties: {
-          name: layer.getPopup()?.getContent() || 'Линия',
-        },
+        properties: layer.feature ? layer.feature.properties : { name: 'Линия', length: calculateLineLength(layer.getLatLngs()) },
       });
+      console.log('Линия добавлена в GeoJSON для сохранения');
     } else if (layer instanceof L.Polygon) {
       geojson.features.push({
         type: 'Feature',
@@ -235,13 +368,13 @@ function exportToGeoJSON() {
           type: 'Polygon',
           coordinates: [layer.getLatLngs()[0].map((latlng) => [latlng.lng, latlng.lat])],
         },
-        properties: {
-          name: layer.getPopup()?.getContent() || 'Полигон',
-        },
+        properties: layer.feature ? layer.feature.properties : { name: 'Полигон', area: calculatePolygonArea(layer.getLatLngs()[0]) },
       });
+      console.log('Полигон добавлен в GeoJSON для сохранения');
     }
   });
 
+  console.log('GeoJSON для сохранения:', geojson);
   return geojson;
 }
 
@@ -280,16 +413,112 @@ function importFromGeoJSON(geojson) {
         const coordinates = feature.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
         const line = L.polyline(coordinates, { color: 'red' })
           .addTo(state.drawnItems);
-        if (feature.properties && feature.properties.name) {
-          line.bindPopup(feature.properties.name);
+        if (feature.properties) {
+          line.feature = { type: 'Feature', properties: feature.properties };
+          const length = feature.properties.length || calculateLineLength(line.getLatLngs());
+          line.feature.properties.length = length;
+          const popupContent = `
+            <div>
+              <b>Название:</b> <input type="text" id="popup-name-input" value="${feature.properties.name || 'Линия'}" style="width: 150px; padding: 5px; margin-bottom: 5px;"><br>
+              <b>Длина:</b> <span id="line-length">${length.toFixed(2)} м</span><br>
+              <select id="unit-select" style="margin-top: 5px;">
+                <option value="meters">Метры</option>
+                <option value="kilometers">Километры</option>
+              </select>
+              <button id="popup-save-name" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;">Сохранить</button>
+            </div>
+          `;
+          line.bindPopup(popupContent);
+          line.on('popupopen', () => {
+            setTimeout(() => {
+              const saveButton = document.getElementById('popup-save-name');
+              const unitSelect = document.getElementById('unit-select');
+              if (saveButton) {
+                saveButton.addEventListener('click', () => {
+                  const nameInput = document.getElementById('popup-name-input');
+                  if (nameInput) {
+                    const newName = nameInput.value.trim();
+                    if (newName) {
+                      line.feature.properties.name = newName;
+                      console.log('Название линии обновлено:', newName);
+                      line.closePopup();
+                    } else {
+                      console.log('Название не введено');
+                    }
+                  }
+                });
+              }
+              if (unitSelect) {
+                unitSelect.addEventListener('change', () => {
+                  const unit = unitSelect.value;
+                  const lengthSpan = document.getElementById('line-length');
+                  if (lengthSpan) {
+                    if (unit === 'meters') {
+                      lengthSpan.textContent = `${length.toFixed(2)} м`;
+                    } else {
+                      lengthSpan.textContent = `${(length / 1000).toFixed(2)} км`;
+                    }
+                  }
+                });
+              }
+            }, 100);
+          });
         }
         line.on('click', () => selectObject(line));
       } else if (feature.geometry.type === 'Polygon') {
         const coordinates = feature.geometry.coordinates[0].map(([lng, lat]) => [lat, lng]);
         const polygon = L.polygon([coordinates], { color: 'green' })
           .addTo(state.drawnItems);
-        if (feature.properties && feature.properties.name) {
-          polygon.bindPopup(feature.properties.name);
+        if (feature.properties) {
+          polygon.feature = { type: 'Feature', properties: feature.properties };
+          const area = feature.properties.area || calculatePolygonArea(polygon.getLatLngs()[0]);
+          polygon.feature.properties.area = area;
+          const popupContent = `
+            <div>
+              <b>Название:</b> <input type="text" id="popup-name-input" value="${feature.properties.name || 'Полигон'}" style="width: 150px; padding: 5px; margin-bottom: 5px;"><br>
+              <b>Площадь:</b> <span id="polygon-area">${area.toFixed(2)} м²</span><br>
+              <select id="unit-select" style="margin-top: 5px;">
+                <option value="meters">Метры</option>
+                <option value="kilometers">Километры</option>
+              </select>
+              <button id="popup-save-name" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;">Сохранить</button>
+            </div>
+          `;
+          polygon.bindPopup(popupContent);
+          polygon.on('popupopen', () => {
+            setTimeout(() => {
+              const saveButton = document.getElementById('popup-save-name');
+              const unitSelect = document.getElementById('unit-select');
+              if (saveButton) {
+                saveButton.addEventListener('click', () => {
+                  const nameInput = document.getElementById('popup-name-input');
+                  if (nameInput) {
+                    const newName = nameInput.value.trim();
+                    if (newName) {
+                      polygon.feature.properties.name = newName;
+                      console.log('Название полигона обновлено:', newName);
+                      polygon.closePopup();
+                    } else {
+                      console.log('Название не введено');
+                    }
+                  }
+                });
+              }
+              if (unitSelect) {
+                unitSelect.addEventListener('change', () => {
+                  const unit = unitSelect.value;
+                  const areaSpan = document.getElementById('polygon-area');
+                  if (areaSpan) {
+                    if (unit === 'meters') {
+                      areaSpan.textContent = `${area.toFixed(2)} м²`;
+                    } else {
+                      areaSpan.textContent = `${(area / 1000000).toFixed(2)} км²`;
+                    }
+                  }
+                });
+              }
+            }, 100);
+          });
         }
         polygon.on('click', () => selectObject(polygon));
       }
@@ -299,4 +528,39 @@ function importFromGeoJSON(geojson) {
   });
 }
 
-export { setupMapHandlers, addMarker, addLinePoint, addPolygonPoint, finishDrawing, resetDrawing, exportToGeoJSON, importFromGeoJSON };
+/**
+ * Вычисляет длину линии в метрах.
+ * @param {L.LatLng[]} latlngs - Координаты точек линии.
+ * @returns {number} Длина линии в метрах.
+ */
+function calculateLineLength(latlngs) {
+  let length = 0;
+  for (let i = 0; i < latlngs.length - 1; i++) {
+    length += latlngs[i].distanceTo(latlngs[i + 1]);
+  }
+  return length;
+}
+
+/**
+ * Вычисляет площадь полигона в квадратных метрах.
+ * @param {L.LatLng[]} latlngs - Координаты точек полигона.
+ * @returns {number} Площадь полигона в квадратных метрах.
+ */
+function calculatePolygonArea(latlngs) {
+  if (latlngs.length < 3) return 0;
+  
+  let area = 0;
+  const R = 6371000; // Радиус Земли в метрах
+  
+  for (let i = 0, j = latlngs.length - 1; i < latlngs.length; j = i++) {
+    const lat1 = latlngs[j].lat * Math.PI / 180;
+    const lat2 = latlngs[i].lat * Math.PI / 180;
+    const dLon = (latlngs[i].lng - latlngs[j].lng) * Math.PI / 180;
+    area += (latlngs[j].lng - latlngs[i].lng) * (2 + Math.sin(lat1) + Math.sin(lat2));
+  }
+  
+  area = area * R * R / 2;
+  return Math.abs(area);
+}
+
+export { setupMapHandlers, addMarker, addLinePoint, addPolygonPoint, finishDrawing, resetDrawing, exportToGeoJSON, importFromGeoJSON, calculateLineLength, calculatePolygonArea };

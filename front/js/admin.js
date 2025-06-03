@@ -1,10 +1,32 @@
 import { importFromGeoJSON } from './drawing.js';
 import { state } from './mapInit.js';
 
-
-//Загружает список всех файлов для админа
+/**
+ * Загружает список всех файлов для админа
+ */
 async function loadAdminFileList() {
     try {
+        console.log('Проверка прав администратора перед запросом списка файлов...');
+        const userResponse = await fetch('http://127.0.0.1:3000/user/info', {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!userResponse.ok) {
+            console.error('Ошибка получения информации о пользователе:', userResponse.status, userResponse.statusText);
+            throw new Error('Ошибка получения информации о пользователе');
+        }
+        
+        const user = await userResponse.json();
+        console.log('Информация о пользователе:', user);
+
+        if (!user.isAdmin && user.username !== 'admin') {
+            console.log('Пользователь не является администратором, запрос списка файлов не выполняется.');
+            return;
+        }
+
         console.log('Запрос списка всех файлов для администратора...');
         const response = await fetch('http://127.0.0.1:3000/admin/files', {
             credentials: 'include',
@@ -39,7 +61,9 @@ async function loadAdminFileList() {
     }
 }
 
-//Загружает выбранный файл
+/**
+ * Загружает выбранный файл
+ */
 async function loadSelectedFile() {
     const select = document.getElementById('admin-file-list');
     const value = select.value;
@@ -73,7 +97,9 @@ async function loadSelectedFile() {
     }
 }
 
-//Инициализация админских функций
+/**
+ * Инициализация админских функций
+ */
 function initAdmin() {
     document.addEventListener('authSuccess', () => {
         // Обновляем список файлов при успешной авторизации

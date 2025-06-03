@@ -4,8 +4,9 @@
  */
 import { state } from './mapInit.js';
 
-//Выполняет поиск местоположения и отображает его на карте.
- 
+/**
+ * Выполняет поиск местоположения и отображает его на карте.
+ */
 async function searchLocation() {
   if (typeof L === 'undefined') {
     console.error('Leaflet не загружен');
@@ -53,8 +54,9 @@ async function searchLocation() {
   }
 }
 
-//Инициализирует обработчики для поля поиска и кнопки.
- 
+/**
+ * Инициализирует обработчики для поля поиска и кнопки.
+ */
 function initSearch() {
   const searchBtn = document.getElementById('search-btn');
   const searchInput = document.getElementById('search-input');

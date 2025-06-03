@@ -15,7 +15,6 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static('front'));
 
 // Middleware для проверки JWT
 async function authenticateToken(req, res, next) {
