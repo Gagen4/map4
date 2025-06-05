@@ -69,6 +69,8 @@ app.post('/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         console.log('Создание нового пользователя...');
         const userId = await db.createUserByEmail(email, hashedPassword);
+        // Устанавливаем роль student для новых пользователей
+        await db.updateUserRole(userId, 'student');
         
         console.log('Генерация JWT токена...');
         const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
@@ -314,6 +316,36 @@ app.get('/admin/set-role', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
+// Временный endpoint для проверки количества пользователей без email (для отладки)
+app.get('/admin/check-users-without-email', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { runQuery } = require('./config/database');
+        const usersWithoutEmail = await runQuery('SELECT id, username FROM Users WHERE email IS NULL OR email = ""');
+        res.json({ count: usersWithoutEmail.length, users: usersWithoutEmail });
+    } catch (error) {
+        console.error('Ошибка при проверке пользователей без email:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение списка всех пользователей (для админа)
+app.get('/admin/users', authenticateToken, isAdmin, async (req, res) => {
+    console.log('Запрос списка всех пользователей от администратора:', req.user.email);
+    try {
+        const { runQuery } = require('./config/database');
+        const allUsers = await runQuery('SELECT id, email, role FROM Users WHERE email IS NOT NULL AND email != ""');
+        console.log('Список пользователей успешно отправлен администратору');
+        res.json(allUsers.map(user => ({
+            id: user.id,
+            email: user.email,
+            role: user.role || 'student'
+        })));
+    } catch (error) {
+        console.error('Ошибка получения списка пользователей для админа:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 app.listen(port, async () => {
     console.log(`Сервер запущен на порту ${port}`);
     
@@ -336,6 +368,26 @@ app.listen(port, async () => {
             }
         } catch (error) {
             console.error('Ошибка при установке роли admin для gagenik257@gmail.com:', error);
+        }
+        
+        // Временный код для удаления аккаунтов без email и связанных с ними сохранений
+        try {
+            const usersWithoutEmail = await runQuery('SELECT id FROM Users WHERE email IS NULL OR email = ""');
+            console.log(`Найдено ${usersWithoutEmail.length} пользователей без email`);
+            
+            for (const user of usersWithoutEmail) {
+                // Удаляем связанные сохранения
+                await runQuery('DELETE FROM MapObjects WHERE created_by = ?', [user.id]);
+                console.log(`Удалены сохранения для пользователя с ID ${user.id}`);
+                
+                // Удаляем пользователя
+                await runQuery('DELETE FROM Users WHERE id = ?', [user.id]);
+                console.log(`Удален пользователь с ID ${user.id}`);
+            }
+            
+            console.log('Завершено удаление аккаунтов без email и их сохранений');
+        } catch (error) {
+            console.error('Ошибка при удалении аккаунтов без email:', error);
         }
     } catch (error) {
         console.error('Ошибка подключения к базе данных при старте сервера:', error);

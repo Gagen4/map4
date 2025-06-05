@@ -314,7 +314,8 @@ function updateAuthUI() {
     const mapContainer = document.getElementById('map-container');
     const userInfo = document.querySelector('.user-info');
     const usernameDisplay = document.getElementById('username-display');
-    const adminPanel = document.getElementById('admin-panel');
+    const adminFilePanel = document.getElementById('admin-file-panel');
+    const adminRolePanel = document.getElementById('admin-role-panel');
 
     if (currentUser) {
         console.log('Показываем интерфейс для авторизованного пользователя');
@@ -323,9 +324,10 @@ function updateAuthUI() {
         userInfo.style.display = 'block';
         usernameDisplay.textContent = currentUser.email + (currentUser.isAdmin ? ' (Admin)' : '');
         
-        // Показываем или скрываем админ-панель
-        if (adminPanel) {
-            adminPanel.style.display = currentUser.isAdmin ? 'block' : 'none';
+        // Показываем или скрываем админ-панели
+        if (adminFilePanel && adminRolePanel) {
+            adminFilePanel.style.display = currentUser.isAdmin ? 'block' : 'none';
+            adminRolePanel.style.display = currentUser.isAdmin ? 'block' : 'none';
             if (currentUser.isAdmin) {
                 loadUserList();
             }
@@ -335,8 +337,9 @@ function updateAuthUI() {
         authContainer.style.display = 'flex';
         mapContainer.style.display = 'none';
         userInfo.style.display = 'none';
-        if (adminPanel) {
-            adminPanel.style.display = 'none';
+        if (adminFilePanel && adminRolePanel) {
+            adminFilePanel.style.display = 'none';
+            adminRolePanel.style.display = 'none';
         }
         document.getElementById('username').value = '';
         document.getElementById('password').value = '';
@@ -438,6 +441,49 @@ async function loadUserList() {
             const userDiv = document.createElement('div');
             userDiv.innerHTML = `<strong>${email}</strong>: ${userFiles.join(', ')}`;
             userList.appendChild(userDiv);
+        }
+        
+        // Заполняем выпадающее меню email пользователей из нового endpoint
+        const usersResponse = await fetch('http://127.0.0.1:3000/admin/users', {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        const allUsers = await usersResponse.json();
+        if (usersResponse.ok) {
+            const emailSelect = document.getElementById('role-email');
+            emailSelect.innerHTML = '<option value="">Выберите пользователя...</option>';
+            allUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.email;
+                option.textContent = `${user.email} (${user.role})`;
+                emailSelect.appendChild(option);
+            });
+        }
+        
+        // Добавляем проверку пользователей без email
+        const checkResponse = await fetch('http://127.0.0.1:3000/admin/check-users-without-email', {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        const checkResult = await checkResponse.json();
+        if (checkResponse.ok) {
+            const noEmailDiv = document.createElement('div');
+            noEmailDiv.innerHTML = `<br><strong>Пользователей без email:</strong> ${checkResult.count}`;
+            userList.appendChild(noEmailDiv);
+            
+            if (checkResult.count > 0) {
+                checkResult.users.forEach(user => {
+                    const userNoEmailDiv = document.createElement('div');
+                    userNoEmailDiv.innerHTML = `ID: ${user.id}, Username: ${user.username || 'не указан'}`;
+                    userList.appendChild(userNoEmailDiv);
+                });
+            }
         }
     } catch (error) {
         console.error('Ошибка при загрузке списка пользователей:', error);
