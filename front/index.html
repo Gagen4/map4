@@ -13,7 +13,7 @@
         <div class="auth-form">
             <h2>Вход</h2>
             <div class="error" style="display: none;"></div>
-            <input type="text" id="username" placeholder="Имя пользователя" />
+            <input type="email" id="username" placeholder="Email" />
             <input type="password" id="password" placeholder="Пароль" />
             <button id="auth-submit">Войти</button>
             <div class="switch-mode">
@@ -66,6 +66,18 @@
         <div class="user-info">
             <span id="username-display"></span>
             <button id="logout-btn">Выйти</button>
+        </div>
+    </div>
+    <div id="admin-panel" style="display: none; position: absolute; top: 60px; right: 10px; background: white; border: 1px solid #ccc; padding: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+        <h3>Управление ролями</h3>
+        <div id="user-list"></div>
+        <div>
+            <input type="text" id="role-email" placeholder="Email пользователя">
+            <select id="role-select">
+                <option value="user">Пользователь</option>
+                <option value="admin">Администратор</option>
+            </select>
+            <button onclick="updateUserRole()">Обновить роль</button>
         </div>
     </div>
     <script src="leaflet/leaflet.js"></script>

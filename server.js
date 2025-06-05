@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
+const axios = require('axios');
 const app = express();
 const port = 3000;
 
@@ -24,11 +25,11 @@ async function authenticateToken(req, res, next) {
     try {
         const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
         const decoded = jwt.verify(token, secret);
-        const user = await db.getUserByUsername(decoded.username);
+        const user = await db.getUserByEmail(decoded.email);
         if (!user) {
             return res.status(401).json({ error: 'Пользователь не найден' });
         }
-        req.user = { id: user.id, username: user.username, isAdmin: user.role === 'admin' };
+        req.user = { id: user.id, email: user.email, isAdmin: user.role === 'admin' };
         next();
     } catch (error) {
         console.error('Ошибка проверки токена:', error);
@@ -38,40 +39,40 @@ async function authenticateToken(req, res, next) {
 
 // Middleware для проверки прав администратора
 function isAdmin(req, res, next) {
-    if (!req.user.isAdmin && req.user.username !== 'admin') {
-        console.log('Доступ запрещен для пользователя:', req.user.username);
+    if (!req.user.isAdmin && req.user.email !== 'admin') {
+        console.log('Доступ запрещен для пользователя:', req.user.email);
         return res.status(403).json({ error: 'Требуются права администратора' });
     }
-    console.log('Доступ администратора разрешен для:', req.user.username);
+    console.log('Доступ администратора разрешен для:', req.user.email);
     next();
 }
 
 // Регистрация
 app.post('/register', async (req, res) => {
     console.log('Запрос на регистрацию получен:', req.body);
-    const { username, password } = req.body;
+    const { email, password } = req.body;
     
-    if (!username || !password) {
-        console.log('Ошибка: отсутствует имя пользователя или пароль');
-        return res.status(400).json({ error: 'Требуются имя пользователя и пароль' });
+    if (!email || !password) {
+        console.log('Ошибка: отсутствует email или пароль');
+        return res.status(400).json({ error: 'Требуются email и пароль' });
     }
 
     try {
         console.log('Проверка существующего пользователя...');
-        const existingUser = await db.getUserByUsername(username);
+        const existingUser = await db.getUserByEmail(email);
         if (existingUser) {
-            console.log('Пользователь уже существует:', username);
+            console.log('Пользователь уже существует:', email);
             return res.status(400).json({ error: 'Пользователь уже существует' });
         }
 
         console.log('Хеширование пароля...');
         const hashedPassword = await bcrypt.hash(password, 10);
         console.log('Создание нового пользователя...');
-        const userId = await db.createUser(username, hashedPassword);
+        const userId = await db.createUserByEmail(email, hashedPassword);
         
         console.log('Генерация JWT токена...');
         const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
-        const token = jwt.sign({ username }, secret, { expiresIn: '24h' });
+        const token = jwt.sign({ email }, secret, { expiresIn: '24h' });
         
         console.log('Установка cookie...');
         res.cookie('token', token, { 
@@ -79,11 +80,10 @@ app.post('/register', async (req, res) => {
             secure: false,
             maxAge: 24 * 60 * 60 * 1000,
             sameSite: 'lax',
-            path: '/',
-            domain: '127.0.0.1'
+            path: '/'
         });
         console.log('Отправка успешного ответа...');
-        res.json({ message: 'Регистрация успешна', username });
+        res.json({ message: 'Регистрация успешна', email });
     } catch (error) {
         console.error('Ошибка при регистрации:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
@@ -93,21 +93,21 @@ app.post('/register', async (req, res) => {
 // Вход
 app.post('/login', async (req, res) => {
     console.log('Запрос на вход получен:', req.body);
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
     try {
         console.log('Поиск пользователя...');
-        const user = await db.getUserByUsername(username);
+        const user = await db.getUserByEmail(email);
         if (!user) {
-            console.log('Пользователь не найден:', username);
-            return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+            console.log('Пользователь не найден:', email);
+            return res.status(401).json({ error: 'Неверный email или пароль' });
         }
 
         console.log('Проверка пароля...');
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
-            console.log('Неверный пароль для пользователя:', username);
-            return res.status(401).json({ error: 'Неверное имя пользователя или пароль' });
+            console.log('Неверный пароль для пользователя:', email);
+            return res.status(401).json({ error: 'Неверный email или пароль' });
         }
 
         console.log('Обновление времени последнего входа...');
@@ -115,7 +115,7 @@ app.post('/login', async (req, res) => {
 
         console.log('Генерация JWT токена...');
         const secret = process.env.JWT_SECRET || 'my-secret-key-please-change-me';
-        const token = jwt.sign({ username }, secret, { expiresIn: '24h' });
+        const token = jwt.sign({ email }, secret, { expiresIn: '24h' });
         
         console.log('Установка cookie...');
         res.cookie('token', token, { 
@@ -123,14 +123,13 @@ app.post('/login', async (req, res) => {
             secure: false,
             maxAge: 24 * 60 * 60 * 1000,
             sameSite: 'lax',
-            path: '/',
-            domain: '127.0.0.1'
+            path: '/'
         });
         
         console.log('Отправка успешного ответа...');
         res.json({ 
             message: 'Вход выполнен успешно', 
-            username,
+            email,
             isAdmin: user.role === 'admin'
         });
     } catch (error) {
@@ -203,11 +202,11 @@ app.get('/files', authenticateToken, async (req, res) => {
 
 // Получение списка всех файлов (для админа)
 app.get('/admin/files', authenticateToken, isAdmin, async (req, res) => {
-    console.log('Запрос списка всех файлов от администратора:', req.user.username);
+    console.log('Запрос списка всех файлов от администратора:', req.user.email);
     try {
         const allFiles = await db.getAllMapObjects();
         const files = allFiles.map(file => ({
-            username: file.username,
+            email: file.email,
             fileName: file.name,
             createdAt: file.created_at
         }));
@@ -220,11 +219,11 @@ app.get('/admin/files', authenticateToken, isAdmin, async (req, res) => {
 });
 
 // Загрузка файла любого пользователя (для админа)
-app.get('/admin/load/:username/:fileName', authenticateToken, isAdmin, async (req, res) => {
-    const { username, fileName } = req.params;
+app.get('/admin/load/:email/:fileName', authenticateToken, isAdmin, async (req, res) => {
+    const { email, fileName } = req.params;
 
     try {
-        const user = await db.getUserByUsername(username);
+        const user = await db.getUserByEmail(email);
         if (!user) {
             return res.status(404).json({ error: 'Пользователь не найден' });
         }
@@ -249,7 +248,7 @@ app.get('/admin/load/:username/:fileName', authenticateToken, isAdmin, async (re
 // Получение информации о текущем пользователе
 app.get('/user/info', authenticateToken, (req, res) => {
     res.json({
-        username: req.user.username,
+        email: req.user.email,
         isAdmin: req.user.isAdmin
     });
 });
@@ -260,12 +259,59 @@ app.post('/logout', (req, res) => {
     res.clearCookie('token', {
         httpOnly: false,
         secure: false,
-        sameSite: 'lax',
-        path: '/',
-        domain: '127.0.0.1'
+        sameSite: 'none',
+        path: '/'
     });
     res.json({ message: 'Выход выполнен успешно' });
     console.log('Cookie токен очищен, выход выполнен');
+});
+
+// Проверка существования email через API QuickEmailVerification
+app.get('/verify-email', async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+        return res.status(400).json({ error: 'Email обязателен' });
+    }
+
+    try {
+        console.log('Проверка email через API:', email);
+        const quickemailverification = require('quickemailverification').client('ef2daf6f600fa70684ae72d405e822042a47b06b4de528a9a17c8f5351df').quickemailverification();
+        
+        quickemailverification.verify(email, function(err, response) {
+            if (err) {
+                console.error('Ошибка при проверке email через API:', err);
+                return res.status(500).json({ error: 'Ошибка проверки email', details: err.message });
+            }
+            
+            const result = response.body;
+            console.log('Результат проверки email:', result);
+            res.json({ exists: result.result === 'valid' });
+        });
+    } catch (error) {
+        console.error('Ошибка при проверке email через API:', error);
+        res.status(500).json({ error: 'Ошибка проверки email', details: error.message });
+    }
+});
+
+// Временный endpoint для обновления роли пользователя на admin (для начальной настройки)
+app.get('/admin/set-role', authenticateToken, isAdmin, async (req, res) => {
+    const { email, role } = req.query;
+    if (!email || !role) {
+        return res.status(400).json({ error: 'Email и роль обязательны' });
+    }
+
+    try {
+        const user = await db.getUserByEmail(email);
+        if (!user) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        await db.updateUserRole(user.id, role);
+        res.json({ message: `Роль пользователя ${email} обновлена на ${role}` });
+    } catch (error) {
+        console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
 });
 
 app.listen(port, async () => {
@@ -276,6 +322,21 @@ app.listen(port, async () => {
         const { runQuery } = require('./config/database');
         const result = await runQuery('SELECT 1 as test');
         console.log('Успешное подключение к базе данных SQLite!');
+        
+        // Временный код для установки роли admin для пользователя gagenik257@gmail.com
+        try {
+            const adminUser = await db.getUserByEmail('gagenik257@gmail.com');
+            if (adminUser && adminUser.role !== 'admin') {
+                await db.updateUserRole(adminUser.id, 'admin');
+                console.log('Роль пользователя gagenik257@gmail.com обновлена на admin');
+            } else if (adminUser) {
+                console.log('Пользователь gagenik257@gmail.com уже имеет роль admin');
+            } else {
+                console.log('Пользователь gagenik257@gmail.com не найден в базе данных');
+            }
+        } catch (error) {
+            console.error('Ошибка при установке роли admin для gagenik257@gmail.com:', error);
+        }
     } catch (error) {
         console.error('Ошибка подключения к базе данных при старте сервера:', error);
         console.error('Код ошибки:', error.code);

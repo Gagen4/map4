@@ -9,10 +9,26 @@ async function createUser(username, hashedPassword) {
     return result.id;
 }
 
+async function createUserByEmail(email, hashedPassword) {
+    const result = await run(
+        'INSERT INTO Users (email, username, password) VALUES (?, ?, ?)',
+        [email, email, hashedPassword]
+    );
+    return result.id;
+}
+
 async function getUserByUsername(username) {
     const rows = await runQuery(
         'SELECT * FROM Users WHERE username = ?',
         [username]
+    );
+    return rows[0];
+}
+
+async function getUserByEmail(email) {
+    const rows = await runQuery(
+        'SELECT * FROM Users WHERE email = ?',
+        [email]
     );
     return rows[0];
 }
@@ -22,6 +38,11 @@ async function updateUserLastLogin(userId) {
         'UPDATE Users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [userId]
     );
+}
+
+async function updateUserRole(userId, role) {
+    const sql = 'UPDATE users SET role = ? WHERE id = ?';
+    return await runQuery(sql, [role, userId]);
 }
 
 // Операции с объектами карты
@@ -58,8 +79,11 @@ async function getAllMapObjects() {
 
 module.exports = {
     createUser,
+    createUserByEmail,
     getUserByUsername,
+    getUserByEmail,
     updateUserLastLogin,
+    updateUserRole,
     saveMapObject,
     getMapObjectsByUser,
     getMapObjectByName,
